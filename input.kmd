@@ -1,0 +1,24 @@
+KMD
+00000000:             ; start
+00000000: E28F8014    ;         adr r8, inp
+00000004:             ; collectInp
+00000004: EF000001    ;         swi 1
+00000008: E3500000    ;         cmp R0, #0
+0000000C: 0A000001    ;         beq end
+00000010:             ; 
+00000010: E4C80001    ;         strb R0, [r8], #1
+00000014:             ; 
+00000014: EAFFFFFA    ;         b collectInp
+00000018:             ; end
+00000018: EF000002    ;         swi 2
+0000001C:             ; 
+0000001C:             ; 
+0000001C:             ; align
+0000001C:             ; inp defs 12
+00000028:             ; 
+
+Symbol Table: Labels
+: start                             00000000  Local -- ARM
+: collectInp                        00000004  Local -- ARM
+: end                               00000018  Local -- ARM
+: inp                               0000001C  Local -- ARM
