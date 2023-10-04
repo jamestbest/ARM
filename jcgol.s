@@ -12,8 +12,6 @@ b start
 temp defb 14332 
 align
 start
-
-    get test.txt
     mov r13, #0x10000 ;;WHAT ARE THE RULES?!?!?! Is some memory at the top ROM
 
     mov r0, #0
