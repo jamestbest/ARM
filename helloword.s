@@ -1,5 +1,3 @@
-stra defb "Hello world!\0"
-
 start
 	mov R0, #1
 	mov R1, #2
@@ -12,3 +10,6 @@ start
 
 	b start
 	ret
+
+
+stra defb "Hello world!",0

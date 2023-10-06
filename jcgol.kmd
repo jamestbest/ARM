@@ -16,11 +16,19 @@ KMD
 00000008: E3A0D801    ;     mov r13, #0x10000 ;;WHAT ARE THE RULES?!?!?! Is some memory at the top ROM
 0000000C:             ; 
 0000000C: E3A00000    ;     mov r0, #0
+<<<<<<< HEAD
 00000010: E5CF07B8    ;     strb r0, slowmode
 00000014:             ; 
 00000014: E28FA0C5    ;     adrl r10, grida ;;R10 Will store the pointer to the active grid
 00000018: E28AAC07    ; 
 0000001C: E28FB041    ;     adrl r11, gridb ;;R11 will store the pointer to the grid to update ;;THESE (r10,r11) ARE NO
+=======
+00000010: E5CF07B4    ;     strb r0, slowmode
+00000014:             ; 
+00000014: E28FA0C1    ;     adrl r10, grida ;;R10 Will store the pointer to the active grid
+00000018: E28AAC07    ; 
+0000001C: E28FB03D    ;     adrl r11, gridb ;;R11 will store the pointer to the grid to update ;;THESE (r10,r11) ARE NO
+>>>>>>> refs/remotes/origin/main
 00000020: E28BBC0B    ; T USED ELSEWHERE
 00000024:             ; 
 00000024:             ;     ;; bl clearinput
@@ -32,7 +40,11 @@ KMD
 0000002C:             ; loop
 0000002C: EB00001E    ;     bl updategrid
 00000030:             ; 
+<<<<<<< HEAD
 00000030: E5DF0798    ;     ldrb r0, slowmode
+=======
+00000030: E5DF0794    ;     ldrb r0, slowmode
+>>>>>>> refs/remotes/origin/main
 00000034: E3500001    ;     cmp r0, #1
 00000038: 1A000000    ;     bne loopcont
 0000003C:             ; 
@@ -84,12 +96,20 @@ KMD
 000000AC: E92D4000    ;     push {r14}
 000000B0: E3A00000    ;     mov r0, #0 ;;row
 000000B4:             ; ugouterloop
+<<<<<<< HEAD
 000000B4: E5DF5713    ;     ldrb r5, height
+=======
+000000B4: E5DF570F    ;     ldrb r5, height
+>>>>>>> refs/remotes/origin/main
 000000B8: E1500005    ;     cmp r0, r5
 000000BC: AA00001D    ;     bge updategridend
 000000C0: E3A01000    ;     mov r1, #0 ;;col
 000000C4:             ; uginnerloop
+<<<<<<< HEAD
 000000C4: E5DF5702    ;     ldrb r5, width
+=======
+000000C4: E5DF56FE    ;     ldrb r5, width
+>>>>>>> refs/remotes/origin/main
 000000C8: E1510005    ;     cmp r1, r5
 000000CC: AA000016    ;     bge uginnerloopend
 000000D0: E92D0003    ;     push {r0, r1}
@@ -147,7 +167,11 @@ KMD
 0000014C:             ; 
 0000014C: E92D4000    ;     push {r14} ;;save return
 00000150:             ; 
+<<<<<<< HEAD
 00000150: E28F8079    ;     adrl r8, offsets
+=======
+00000150: E28F8075    ;     adrl r8, offsets
+>>>>>>> refs/remotes/origin/main
 00000154: E2888C06    ; 
 00000158: E3A09000    ;     mov r9, #0
 0000015C:             ; gncloop ;;go through every offset
@@ -183,12 +207,20 @@ KMD
 000001B4: E3A02001    ;     mov r2, #1 ;;isvalid
 000001B8: E3500000    ;     cmp r0, #0
 000001BC: B3A02000    ;     movlt r2, #0
+<<<<<<< HEAD
 000001C0: E5DF3607    ;     ldrb r3, height
+=======
+000001C0: E5DF3603    ;     ldrb r3, height
+>>>>>>> refs/remotes/origin/main
 000001C4: E1500003    ;     cmp r0, r3
 000001C8: A3A02000    ;     movge r2, #0
 000001CC: E3510000    ;     cmp r1, #0
 000001D0: B3A02000    ;     movlt r2, #0
+<<<<<<< HEAD
 000001D4: E5DF35F2    ;     ldrb r3, width 
+=======
+000001D4: E5DF35EE    ;     ldrb r3, width 
+>>>>>>> refs/remotes/origin/main
 000001D8: E1510003    ;     cmp r1, r3
 000001DC: A3A02000    ;     movge r2, #0
 000001E0: E1A00002    ;     mov r0, r2
@@ -202,8 +234,13 @@ KMD
 000001E8: E3A06000    ;     mov r6, #0 ;;i = 0
 000001EC: E3A07000    ;     mov r7, #0
 000001F0:             ; 
+<<<<<<< HEAD
 000001F0: E5DF85D6    ;     ldrb r8, width
 000001F4: E5DF95D3    ;     ldrb r9, height
+=======
+000001F0: E5DF85D2    ;     ldrb r8, width
+000001F4: E5DF95CF    ;     ldrb r9, height
+>>>>>>> refs/remotes/origin/main
 000001F8: E0080998    ;     mul r8, r8, r9
 000001FC: E1A0900A    ;     mov r9, r10 ;;mov into r9 the active grids addr
 00000200:             ; initloop
@@ -222,7 +259,11 @@ KMD
 0000021C: E2800C03    ; 
 00000220: EF000003    ;     swi 3
 00000224:             ; 
+<<<<<<< HEAD
 00000224: E28F109E    ;     adrl r1, seed
+=======
+00000224: E28F109A    ;     adrl r1, seed
+>>>>>>> refs/remotes/origin/main
 00000228: E2811C05    ; 
 0000022C: EF000001    ;     swi 1
 00000230: E5C10000    ;     strb r0, [r1, #0]
@@ -243,7 +284,11 @@ KMD
 00000254:             ; 
 00000254: EB000015    ;     bl getdims
 00000258:             ; 
+<<<<<<< HEAD
 00000258: E28F0006    ;     adrl r0, slowmodemsg
+=======
+00000258: E28F0002    ;     adrl r0, slowmodemsg
+>>>>>>> refs/remotes/origin/main
 0000025C: E2800C05    ; 
 00000260: EF000003    ;     swi 3
 00000264:             ; 
@@ -253,7 +298,11 @@ KMD
 0000026C: EF000001    ;     swi 1
 00000270: E3500059    ;     cmp r0, #89
 00000274: E3A01001    ;     mov r1, #1
+<<<<<<< HEAD
 00000278: 05CF1550    ;     streqb r1, slowmode
+=======
+00000278: 05CF154C    ;     streqb r1, slowmode
+>>>>>>> refs/remotes/origin/main
 0000027C:             ; 
 0000027C: EBFFFFD9    ;     bl init
 00000280:             ; 
@@ -267,7 +316,11 @@ KMD
 00000294: E3500064    ;     cmp r0, #100
 00000298: 0A000030    ;     beq getdrawing
 0000029C:             ; 
+<<<<<<< HEAD
 0000029C: E28F00EA    ;     adrl r0, failmsg
+=======
+0000029C: E28F00E6    ;     adrl r0, failmsg
+>>>>>>> refs/remotes/origin/main
 000002A0: E2800B01    ; 
 000002A4: EF000003    ;     swi 3
 000002A8:             ; ggend
@@ -276,44 +329,80 @@ KMD
 000002B0:             ; 
 000002B0:             ; getdims
 000002B0: E92D4000    ;     push {r14}
+<<<<<<< HEAD
 000002B4: E28F0059    ;     adrl r0, getwidthmsg
 000002B8: E2800C03    ; 
 000002BC: EF000003    ;     swi 3
 000002C0:             ; 
 000002C0: E28F00FC    ;     adrl r0, widthinp
+=======
+000002B4: E28F0055    ;     adrl r0, getwidthmsg
+000002B8: E2800C03    ; 
+000002BC: EF000003    ;     swi 3
+000002C0:             ; 
+000002C0: E28F00F8    ;     adrl r0, widthinp
+>>>>>>> refs/remotes/origin/main
 000002C4: E2800B01    ; 
 000002C8: E3A01002    ;     mov r1, #2
 000002CC: EB000016    ;     bl getinpntbt
 000002D0:             ; 
+<<<<<<< HEAD
 000002D0: E28F00EC    ;     adrl r0, widthinp
 000002D4: E2800B01    ; 
 000002D8: EB00008D    ;     bl str2int
+=======
+000002D0: E28F00E8    ;     adrl r0, widthinp
+000002D4: E2800B01    ; 
+000002D8: EB00008C    ;     bl str2int
+>>>>>>> refs/remotes/origin/main
 000002DC:             ;     ;;get input()
 000002DC:             ;     ;;unfortunately we must convert this input into a decimal value from the string
 000002DC:             ; 
 000002DC: EF000004    ;     swi 4
+<<<<<<< HEAD
 000002E0: E5CF04E6    ;     strb r0, width
+=======
+000002E0: E5CF04E2    ;     strb r0, width
+>>>>>>> refs/remotes/origin/main
 000002E4:             ; 
 000002E4: E3A0000A    ;     mov r0, #10
 000002E8: EF000000    ;     swi 0
 000002EC:             ; 
+<<<<<<< HEAD
 000002EC: E28F0072    ;     adrl r0, getheightmsg
 000002F0: E2800C03    ; 
 000002F4: EF000003    ;     swi 3
 000002F8:             ; 
 000002F8: E28F00C7    ;     adrl r0, heightinp
+=======
+000002EC: E28F006E    ;     adrl r0, getheightmsg
+000002F0: E2800C03    ; 
+000002F4: EF000003    ;     swi 3
+000002F8:             ; 
+000002F8: E28F00C3    ;     adrl r0, heightinp
+>>>>>>> refs/remotes/origin/main
 000002FC: E2800B01    ; 
 00000300: E3A01002    ;     mov r1, #2
 00000304: EB000008    ;     bl getinpntbt
 00000308:             ; 
+<<<<<<< HEAD
 00000308: E28F00B7    ;     adrl r0, heightinp
 0000030C: E2800B01    ; 
 00000310: EB00007F    ;     bl str2int
+=======
+00000308: E28F00B3    ;     adrl r0, heightinp
+0000030C: E2800B01    ; 
+00000310: EB00007E    ;     bl str2int
+>>>>>>> refs/remotes/origin/main
 00000314:             ;     ;;get input()
 00000314:             ;     ;;unfortunately we must convert this input into a decimal value from the string
 00000314:             ; 
 00000314: EF000004    ;     swi 4
+<<<<<<< HEAD
 00000318: E5CF04AF    ;     strb r0, height
+=======
+00000318: E5CF04AB    ;     strb r0, height
+>>>>>>> refs/remotes/origin/main
 0000031C:             ; 
 0000031C: E3A0000A    ;     mov r0, #10
 00000320: EF000000    ;     swi 0
@@ -351,7 +440,11 @@ KMD
 00000360:             ; ;;      getinput()
 00000360:             ; ;;      write to location
 00000360:             ; ;;      print grid
+<<<<<<< HEAD
 00000360: E28F0E35    ;     adrl r0, getdrawingmsg
+=======
+00000360: E28F0FD3    ;     adrl r0, getdrawingmsg
+>>>>>>> refs/remotes/origin/main
 00000364: EF000003    ;     swi 3
 00000368:             ; 
 00000368: EF000001    ;     swi 1
@@ -359,12 +452,20 @@ KMD
 0000036C: E3A03000    ;     mov r3, #0 ;;i
 00000370: E3A01000    ;     mov r1, #0
 00000374:             ; gdouterloop
+<<<<<<< HEAD
 00000374: E5DF2452    ;     ldrb r2, width
+=======
+00000374: E5DF244E    ;     ldrb r2, width
+>>>>>>> refs/remotes/origin/main
 00000378: E1530002    ;     cmp r3, r2
 0000037C: 0A000017    ;     beq gdend
 00000380:             ; 
 00000380:             ; gdinnerloop
+<<<<<<< HEAD
 00000380: E5DF2447    ;     ldrb r2, height
+=======
+00000380: E5DF2443    ;     ldrb r2, height
+>>>>>>> refs/remotes/origin/main
 00000384: E1510002    ;     cmp r1, r2
 00000388: 0A000011    ;     beq gdinnerlend
 0000038C:             ; gdinp
@@ -374,7 +475,11 @@ KMD
 00000398: E3500031    ;     cmp r0, #49 ;;1
 0000039C: 0A000002    ;     beq gdwrite
 000003A0:             ; 
+<<<<<<< HEAD
 000003A0: E28F0B01    ;     adrl r0, gderrormsg
+=======
+000003A0: E28F0FFF    ;     adrl r0, gderrormsg
+>>>>>>> refs/remotes/origin/main
 000003A4: EF000003    ;     swi 3
 000003A8: EAFFFFF7    ;     b gdinp
 000003AC:             ; 
@@ -398,7 +503,11 @@ KMD
 000003DC: EAFFFFE4    ;     b gdouterloop
 000003E0:             ; 
 000003E0:             ; gdend
+<<<<<<< HEAD
 000003E0: E28F0049    ;     adrl r0, drawingcmplmsg
+=======
+000003E0: E28F0045    ;     adrl r0, drawingcmplmsg
+>>>>>>> refs/remotes/origin/main
 000003E4: E2800C03    ; 
 000003E8: EF000003    ;     swi 3
 000003EC: EF000001    ;     swi 1
@@ -408,15 +517,24 @@ KMD
 000003F4:             ; ;;if it is to be random then prompt for a 4 character seed
 000003F4: EBFFFF87    ;     bl getseed
 000003F8:             ; 
+<<<<<<< HEAD
 000003F8: E28F90CA    ;     adrl r9, seed
+=======
+000003F8: E28F90C6    ;     adrl r9, seed
+>>>>>>> refs/remotes/origin/main
 000003FC: E2899C03    ; 
 00000400: E5196000    ;     ldr r6, [r9] ;;r6 holds the random seed
 00000404:             ;     ;;for i from 0 to w * h - 1
 00000404: E3A07000    ;     mov r7, #0 ;;i
 00000408:             ; ggrloop
 00000408: E92D0060    ;     push {r5, r6}
+<<<<<<< HEAD
 0000040C: E5DF53BA    ;     ldrb r5, width
 00000410: E5DF63B7    ;     ldrb r6, height
+=======
+0000040C: E5DF53B6    ;     ldrb r5, width
+00000410: E5DF63B3    ;     ldrb r6, height
+>>>>>>> refs/remotes/origin/main
 00000414: E0050695    ;     mul r5, r5, r6
 00000418: E1570005    ;     cmp r7, r5
 0000041C: E8BD0060    ;     pop {r5, r6}
@@ -439,7 +557,11 @@ KMD
 00000444:             ; ;;position of 6 = [1,2]
 00000444:             ; ;;  1 * width + 2 = 4
 00000444: E92D0460    ;     push {r5, r6, r10}
+<<<<<<< HEAD
 00000448: E5DF537E    ;     ldrb r5, width
+=======
+00000448: E5DF537A    ;     ldrb r5, width
+>>>>>>> refs/remotes/origin/main
 0000044C: E0060590    ;     mul r6, r0, r5 ;;r6 = width * x
 00000450: E0866001    ;     add r6, r6, r1 ;;r6 = r6 + y
 00000454:             ;     ;;r6 holds the position in the array as an offset
@@ -451,7 +573,11 @@ KMD
 00000464:             ; sett
 00000464:             ; ;;x,y,value in R0, R1, R2 + addr of grid in R9 ;;late edition -_-
 00000464: E92D0038    ;     push {r3, r4, r5}
+<<<<<<< HEAD
 00000468: E5DF335E    ;     ldrb r3, width
+=======
+00000468: E5DF335A    ;     ldrb r3, width
+>>>>>>> refs/remotes/origin/main
 0000046C: E0040390    ;     mul r4, r0, r3
 00000470: E0844001    ;     add r4, r4, r1
 00000474:             ; 
@@ -472,12 +598,20 @@ KMD
 00000484:             ; 
 00000484: E3A05000    ;     mov r5, #0 ;;row
 00000488:             ; outerloop
+<<<<<<< HEAD
 00000488: E5DF633F    ;     ldrb r6, height
+=======
+00000488: E5DF633B    ;     ldrb r6, height
+>>>>>>> refs/remotes/origin/main
 0000048C: E1550006    ;     cmp r5, r6
 00000490: 0A000014    ;     beq outerlend
 00000494: E3A06000    ;     mov r6, #0 ;;col
 00000498:             ; innerloop
+<<<<<<< HEAD
 00000498: E5DF732E    ;     ldrb r7, width
+=======
+00000498: E5DF732A    ;     ldrb r7, width
+>>>>>>> refs/remotes/origin/main
 0000049C: E1560007    ;     cmp r6, r7
 000004A0: 0A00000C    ;     beq innerlend
 000004A4:             ; 
@@ -566,6 +700,7 @@ KMD
 00000588:             ; s2icount
 00000588:             ; ;;counts the number of characters stored in a buffer (adr in R0) does NOT include the null term
                       ; inator
+<<<<<<< HEAD
 00000588: E3A02000    ;     mov r2, #0 ;;offset
 0000058C:             ; s2icloop
 0000058C: E7D03002    ;     ldrb r3, [r0, r2] ;;adr + offset
@@ -742,6 +877,184 @@ KMD
 00000B65:             ; gridb defs 30 * 30
 00000EE9:             ; 
 00000EE9:             ; ;;this is the max size that the grids can be under the current I cannot reserve dynamicaly?
+=======
+00000584: E3A02000    ;     mov r2, #0 ;;offset
+00000588:             ; s2icloop
+00000588: E7D03002    ;     ldrb r3, [r0, r2] ;;adr + offset
+0000058C: E3530000    ;     cmp r3, #0
+00000590: 0A000001    ;     beq s2iclend ;;naming is hard
+00000594:             ; 
+00000594: E2822001    ;     add r2, r2, #1
+00000598: EAFFFFFA    ;     b s2icloop
+0000059C:             ; s2iclend
+0000059C: E1A00002    ;     mov r0, r2
+000005A0: E1A0F00E    ;     mov r15, r14
+000005A4:             ; 
+000005A4: 50 6C 65 61 ; getchoicemsg defb "Please enter (s) to input a seed or (d) to draw the grid with inputs\n", 0
+000005A8: 73 65 20 65 ; 
+000005AC: 6E 74 65 72 ; 
+000005B0: 20 28 73 29 ; 
+000005B4: 20 74 6F 20 ; 
+000005B8: 69 6E 70 75 ; 
+000005BC: 74 20 61 20 ; 
+000005C0: 73 65 65 64 ; 
+000005C4: 20 6F 72 20 ; 
+000005C8: 28 64 29 20 ; 
+000005CC: 74 6F 20 64 ; 
+000005D0: 72 61 77 20 ; 
+000005D4: 74 68 65 20 ; 
+000005D8: 67 72 69 64 ; 
+000005DC: 20 77 69 74 ; 
+000005E0: 68 20 69 6E ; 
+000005E4: 70 75 74 73 ; 
+000005E8: 0A 00       ; 
+000005EA: 50 6C 65 61 ; getseedmsg defb "Please enter 4 characters as the seed\n", 0
+000005EE: 73 65 20 65 ; 
+000005F2: 6E 74 65 72 ; 
+000005F6: 20 34 20 63 ; 
+000005FA: 68 61 72 61 ; 
+000005FE: 63 74 65 72 ; 
+00000602: 73 20 61 73 ; 
+00000606: 20 74 68 65 ; 
+0000060A: 20 73 65 65 ; 
+0000060E: 64 0A 00    ; 
+00000611: 50 6C 65 61 ; getwidthmsg defb "Please enter width (a +ve int between 1-30) (use ! at end if its only 1 digit
+00000615: 73 65 20 65 ; ): ", 0
+00000619: 6E 74 65 72 ; 
+0000061D: 20 77 69 64 ; 
+00000621: 74 68 20 28 ; 
+00000625: 61 20 2B 76 ; 
+00000629: 65 20 69 6E ; 
+0000062D: 74 20 62 65 ; 
+00000631: 74 77 65 65 ; 
+00000635: 6E 20 31 2D ; 
+00000639: 33 30 29 20 ; 
+0000063D: 28 75 73 65 ; 
+00000641: 20 21 20 61 ; 
+00000645: 74 20 65 6E ; 
+00000649: 64 20 69 66 ; 
+0000064D: 20 69 74 73 ; 
+00000651: 20 6F 6E 6C ; 
+00000655: 79 20 31 20 ; 
+00000659: 64 69 67 69 ; 
+0000065D: 74 29 3A 20 ; 
+00000661: 00          ; 
+00000662: 50 6C 65 61 ; getheightmsg defb "Please enter height (a +ve int between 1-30) (use ! at end if its only 1 dig
+00000666: 73 65 20 65 ; it): ", 0
+0000066A: 6E 74 65 72 ; 
+0000066E: 20 68 65 69 ; 
+00000672: 67 68 74 20 ; 
+00000676: 28 61 20 2B ; 
+0000067A: 76 65 20 69 ; 
+0000067E: 6E 74 20 62 ; 
+00000682: 65 74 77 65 ; 
+00000686: 65 6E 20 31 ; 
+0000068A: 2D 33 30 29 ; 
+0000068E: 20 28 75 73 ; 
+00000692: 65 20 21 20 ; 
+00000696: 61 74 20 65 ; 
+0000069A: 6E 64 20 69 ; 
+0000069E: 66 20 69 74 ; 
+000006A2: 73 20 6F 6E ; 
+000006A6: 6C 79 20 31 ; 
+000006AA: 20 64 69 67 ; 
+000006AE: 69 74 29 3A ; 
+000006B2: 20 00       ; 
+000006B4: 59 6F 75 20 ; getdrawingmsg defb "You must enter a 1 or 0 for each pixel in the grid, after each input the gr
+000006B8: 6D 75 73 74 ; id will be drawn. Press any key to continue.\n", 0
+000006BC: 20 65 6E 74 ; 
+000006C0: 65 72 20 61 ; 
+000006C4: 20 31 20 6F ; 
+000006C8: 72 20 30 20 ; 
+000006CC: 66 6F 72 20 ; 
+000006D0: 65 61 63 68 ; 
+000006D4: 20 70 69 78 ; 
+000006D8: 65 6C 20 69 ; 
+000006DC: 6E 20 74 68 ; 
+000006E0: 65 20 67 72 ; 
+000006E4: 69 64 2C 20 ; 
+000006E8: 61 66 74 65 ; 
+000006EC: 72 20 65 61 ; 
+000006F0: 63 68 20 69 ; 
+000006F4: 6E 70 75 74 ; 
+000006F8: 20 74 68 65 ; 
+000006FC: 20 67 72 69 ; 
+00000700: 64 20 77 69 ; 
+00000704: 6C 6C 20 62 ; 
+00000708: 65 20 64 72 ; 
+0000070C: 61 77 6E 2E ; 
+00000710: 20 50 72 65 ; 
+00000714: 73 73 20 61 ; 
+00000718: 6E 79 20 6B ; 
+0000071C: 65 79 20 74 ; 
+00000720: 6F 20 63 6F ; 
+00000724: 6E 74 69 6E ; 
+00000728: 75 65 2E 0A ; 
+0000072C: 00          ; 
+0000072D: 44 72 61 77 ; drawingcmplmsg defb "Drawing complete! press any key to begin simulation\n",0
+00000731: 69 6E 67 20 ; 
+00000735: 63 6F 6D 70 ; 
+00000739: 6C 65 74 65 ; 
+0000073D: 21 20 70 72 ; 
+00000741: 65 73 73 20 ; 
+00000745: 61 6E 79 20 ; 
+00000749: 6B 65 79 20 ; 
+0000074D: 74 6F 20 62 ; 
+00000751: 65 67 69 6E ; 
+00000755: 20 73 69 6D ; 
+00000759: 75 6C 61 74 ; 
+0000075D: 69 6F 6E 0A ; 
+00000761: 00          ; 
+00000762: 44 6F 20 79 ; slowmodemsg defb "Do you want to active slowmode? (Y/n): ", 0
+00000766: 6F 75 20 77 ; 
+0000076A: 61 6E 74 20 ; 
+0000076E: 74 6F 20 61 ; 
+00000772: 63 74 69 76 ; 
+00000776: 65 20 73 6C ; 
+0000077A: 6F 77 6D 6F ; 
+0000077E: 64 65 3F 20 ; 
+00000782: 28 59 2F 6E ; 
+00000786: 29 3A 20 00 ; 
+0000078A:             ; 
+0000078A: 59 6F 75 20 ; failmsg defb "You dun messed it all up\n", 0
+0000078E: 64 75 6E 20 ; 
+00000792: 6D 65 73 73 ; 
+00000796: 65 64 20 69 ; 
+0000079A: 74 20 61 6C ; 
+0000079E: 6C 20 75 70 ; 
+000007A2: 0A 00       ; 
+000007A4: 50 6C 65 61 ; gderrormsg defb "Please enter either 0 or 1\n", 0
+000007A8: 73 65 20 65 ; 
+000007AC: 6E 74 65 72 ; 
+000007B0: 20 65 69 74 ; 
+000007B4: 68 65 72 20 ; 
+000007B8: 30 20 6F 72 ; 
+000007BC: 20 31 0A 00 ; 
+000007C0:             ; 
+000007C0:             ; widthinp defs 3;;2 bytes for the width input i.e. the characters as max should be `30` + \0 for
+                      ;  end
+000007C3:             ; heightinp defs 3;;same for the height
+000007C6:             ; 
+000007C6: 00000000    ; seed defw 0
+000007CA:             ; 
+000007CA: 0A          ; width defb 10
+000007CB: 0A          ; height defb 10
+000007CC:             ; 
+000007CC: 00          ; slowmode defb 0
+000007CD:             ; 
+000007CD: FF FF FF 00 ; offsets defb -1,-1,-1,0,1,0,0,1,0,-1,1,1,-1,1,1,-1
+000007D1: 01 00 00 01 ; 
+000007D5: 00 FF 01 01 ; 
+000007D9: FF 01 01 FF ; 
+000007DD:             ; 
+000007DD:             ; ;;the grids are 20 * 20 pixels
+000007DD:             ; ;;grida defs w * h
+000007DD:             ; ;;gridb defs w * h
+000007DD:             ; grida defs 30 * 30 
+00000B61:             ; gridb defs 30 * 30
+00000EE5:             ; 
+00000EE5:             ; ;;this is the max size that the grids can be under the current I cannot reserve dynamicaly?
+>>>>>>> refs/remotes/origin/main
 
 Symbol Table: Labels
 : w                                 00000014  Value
@@ -798,6 +1111,7 @@ Symbol Table: Labels
 : innerlend                         000004D8  Local -- ARM
 : outerlend                         000004E8  Local -- ARM
 : endloop                           000004F0  Local -- ARM
+<<<<<<< HEAD
 : endlend                           00000508  Local -- ARM
 : str2int                           00000514  Local -- ARM
 : s2iloop                           00000530  Local -- ARM
@@ -825,3 +1139,32 @@ Symbol Table: Labels
 : offsets                           000007D1  Local -- ARM
 : grida                             000007E1  Local -- ARM
 : gridb                             00000B65  Local -- ARM
+=======
+: endlend                           00000504  Local -- ARM
+: str2int                           00000510  Local -- ARM
+: s2iloop                           0000052C  Local -- ARM
+: s2iinnerloop                      0000054C  Local -- ARM
+: s2iinnerlend                      00000564  Local -- ARM
+: s2iend                            00000578  Local -- ARM
+: s2icount                          00000584  Local -- ARM
+: s2icloop                          00000588  Local -- ARM
+: s2iclend                          0000059C  Local -- ARM
+: getchoicemsg                      000005A4  Local -- ARM
+: getseedmsg                        000005EA  Local -- ARM
+: getwidthmsg                       00000611  Local -- ARM
+: getheightmsg                      00000662  Local -- ARM
+: getdrawingmsg                     000006B4  Local -- ARM
+: drawingcmplmsg                    0000072D  Local -- ARM
+: slowmodemsg                       00000762  Local -- ARM
+: failmsg                           0000078A  Local -- ARM
+: gderrormsg                        000007A4  Local -- ARM
+: widthinp                          000007C0  Local -- ARM
+: heightinp                         000007C3  Local -- ARM
+: seed                              000007C6  Local -- ARM
+: width                             000007CA  Local -- ARM
+: height                            000007CB  Local -- ARM
+: slowmode                          000007CC  Local -- ARM
+: offsets                           000007CD  Local -- ARM
+: grida                             000007DD  Local -- ARM
+: gridb                             00000B61  Local -- ARM
+>>>>>>> refs/remotes/origin/main
