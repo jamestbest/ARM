@@ -13,17 +13,14 @@ KMD
 00000004: FC          ; temp defb 14332 
 00000008:             ; align
 00000008:             ; start
-00000008:             ; 
-00000008:             ;     get test.txt
-00000008:             ; 
 00000008: E3A0D801    ;     mov r13, #0x10000 ;;WHAT ARE THE RULES?!?!?! Is some memory at the top ROM
 0000000C:             ; 
 0000000C: E3A00000    ;     mov r0, #0
-00000010: E5CF078E    ;     strb r0, slowmode
+00000010: E5CF07B8    ;     strb r0, slowmode
 00000014:             ; 
-00000014: E28FA09B    ;     adrl r10, grida ;;R10 Will store the pointer to the active grid
+00000014: E28FA0C5    ;     adrl r10, grida ;;R10 Will store the pointer to the active grid
 00000018: E28AAC07    ; 
-0000001C: E28FB017    ;     adrl r11, gridb ;;R11 will store the pointer to the grid to update ;;THESE (r10,r11) ARE NO
+0000001C: E28FB041    ;     adrl r11, gridb ;;R11 will store the pointer to the grid to update ;;THESE (r10,r11) ARE NO
 00000020: E28BBC0B    ; T USED ELSEWHERE
 00000024:             ; 
 00000024:             ;     ;; bl clearinput
@@ -35,7 +32,7 @@ KMD
 0000002C:             ; loop
 0000002C: EB00001E    ;     bl updategrid
 00000030:             ; 
-00000030: E5DF076E    ;     ldrb r0, slowmode
+00000030: E5DF0798    ;     ldrb r0, slowmode
 00000034: E3500001    ;     cmp r0, #1
 00000038: 1A000000    ;     bne loopcont
 0000003C:             ; 
@@ -87,12 +84,12 @@ KMD
 000000AC: E92D4000    ;     push {r14}
 000000B0: E3A00000    ;     mov r0, #0 ;;row
 000000B4:             ; ugouterloop
-000000B4: E5DF56E9    ;     ldrb r5, height
+000000B4: E5DF5713    ;     ldrb r5, height
 000000B8: E1500005    ;     cmp r0, r5
 000000BC: AA00001D    ;     bge updategridend
 000000C0: E3A01000    ;     mov r1, #0 ;;col
 000000C4:             ; uginnerloop
-000000C4: E5DF56D8    ;     ldrb r5, width
+000000C4: E5DF5702    ;     ldrb r5, width
 000000C8: E1510005    ;     cmp r1, r5
 000000CC: AA000016    ;     bge uginnerloopend
 000000D0: E92D0003    ;     push {r0, r1}
@@ -150,7 +147,7 @@ KMD
 0000014C:             ; 
 0000014C: E92D4000    ;     push {r14} ;;save return
 00000150:             ; 
-00000150: E28F804F    ;     adrl r8, offsets
+00000150: E28F8079    ;     adrl r8, offsets
 00000154: E2888C06    ; 
 00000158: E3A09000    ;     mov r9, #0
 0000015C:             ; gncloop ;;go through every offset
@@ -186,12 +183,12 @@ KMD
 000001B4: E3A02001    ;     mov r2, #1 ;;isvalid
 000001B8: E3500000    ;     cmp r0, #0
 000001BC: B3A02000    ;     movlt r2, #0
-000001C0: E5DF35DD    ;     ldrb r3, height
+000001C0: E5DF3607    ;     ldrb r3, height
 000001C4: E1500003    ;     cmp r0, r3
 000001C8: A3A02000    ;     movge r2, #0
 000001CC: E3510000    ;     cmp r1, #0
 000001D0: B3A02000    ;     movlt r2, #0
-000001D4: E5DF35C8    ;     ldrb r3, width 
+000001D4: E5DF35F2    ;     ldrb r3, width 
 000001D8: E1510003    ;     cmp r1, r3
 000001DC: A3A02000    ;     movge r2, #0
 000001E0: E1A00002    ;     mov r0, r2
@@ -205,8 +202,8 @@ KMD
 000001E8: E3A06000    ;     mov r6, #0 ;;i = 0
 000001EC: E3A07000    ;     mov r7, #0
 000001F0:             ; 
-000001F0: E5DF85AC    ;     ldrb r8, width
-000001F4: E5DF95A9    ;     ldrb r9, height
+000001F0: E5DF85D6    ;     ldrb r8, width
+000001F4: E5DF95D3    ;     ldrb r9, height
 000001F8: E0080998    ;     mul r8, r8, r9
 000001FC: E1A0900A    ;     mov r9, r10 ;;mov into r9 the active grids addr
 00000200:             ; initloop
@@ -221,12 +218,12 @@ KMD
 00000218:             ; getseed
 00000218:             ; ;;get 4 characters of input from the user
 00000218:             ; ;;store them in the seed
-00000218: E28F00CA    ;     adrl r0, getseedmsg
+00000218: E28F00CE    ;     adrl r0, getseedmsg
 0000021C: E2800C03    ; 
 00000220: EF000003    ;     swi 3
 00000224:             ; 
-00000224: E28F1F5D    ;     adrl r1, seed
-00000228: E2811B01    ; 
+00000224: E28F109E    ;     adrl r1, seed
+00000228: E2811C05    ; 
 0000022C: EF000001    ;     swi 1
 00000230: E5C10000    ;     strb r0, [r1, #0]
 00000234: EF000001    ;     swi 1
@@ -244,10 +241,10 @@ KMD
 00000250:             ; ;;2. you can type 1 and 0 or maybe anything/space to set each pixel
 00000250: E92D4000    ;     push {r14}
 00000254:             ; 
-00000254: EB000014    ;     bl getdims
+00000254: EB000015    ;     bl getdims
 00000258:             ; 
-00000258: E28F00DC    ;     adrl r0, slowmodemsg
-0000025C: E2800B01    ; 
+00000258: E28F0006    ;     adrl r0, slowmodemsg
+0000025C: E2800C05    ; 
 00000260: EF000003    ;     swi 3
 00000264:             ; 
 00000264: E3A0000A    ;     mov r0, #10
@@ -256,105 +253,105 @@ KMD
 0000026C: EF000001    ;     swi 1
 00000270: E3500059    ;     cmp r0, #89
 00000274: E3A01001    ;     mov r1, #1
-00000278: 05CF1526    ;     streqb r1, slowmode
+00000278: 05CF1550    ;     streqb r1, slowmode
 0000027C:             ; 
 0000027C: EBFFFFD9    ;     bl init
 00000280:             ; 
-00000280: E28F0FC7    ;     adrl r0, getchoicemsg
+00000280: E28F0E32    ;     adrl r0, getchoicemsg
 00000284: EF000003    ;     swi 3
 00000288:             ; 
 00000288: EF000001    ;     swi 1
 0000028C: E3500073    ;     cmp r0, #115
-00000290: 0A000058    ;     beq gengridrandom
+00000290: 0A000057    ;     beq gengridrandom
 00000294:             ; 
 00000294: E3500064    ;     cmp r0, #100
-00000298: 0A00002F    ;     beq getdrawing
+00000298: 0A000030    ;     beq getdrawing
 0000029C:             ; 
-0000029C: E28F0D13    ;     adrl r0, failmsg
-000002A0: EF000003    ;     swi 3
-000002A4:             ; ggend
-000002A4: E8BD4000    ;     pop {r14}
-000002A8: E1A0F00E    ;     mov r15, r14
-000002AC:             ; 
-000002AC:             ; getdims
-000002AC: E92D4000    ;     push {r14}
-000002B0: E28F0059    ;     adrl r0, getwidthmsg
-000002B4: E2800C03    ; 
-000002B8: EF000003    ;     swi 3
-000002BC:             ; 
-000002BC: E28F00D6    ;     adrl r0, widthinp
-000002C0: E2800B01    ; 
-000002C4: E3A01002    ;     mov r1, #2
-000002C8: EB000016    ;     bl getinpntbt
-000002CC:             ; 
-000002CC: E28F00C6    ;     adrl r0, widthinp
-000002D0: E2800B01    ; 
-000002D4: EB00008D    ;     bl str2int
-000002D8:             ;     ;;get input()
-000002D8:             ;     ;;unfortunately we must convert this input into a decimal value from the string
-000002D8:             ; 
-000002D8: EF000004    ;     swi 4
-000002DC: E5CF04C0    ;     strb r0, width
-000002E0:             ; 
-000002E0: E3A0000A    ;     mov r0, #10
-000002E4: EF000000    ;     swi 0
-000002E8:             ; 
-000002E8: E28F005F    ;     adrl r0, getheightmsg
-000002EC: E2800C03    ; 
-000002F0: EF000003    ;     swi 3
-000002F4:             ; 
-000002F4: E28F00A1    ;     adrl r0, heightinp
-000002F8: E2800B01    ; 
-000002FC: E3A01002    ;     mov r1, #2
-00000300: EB000008    ;     bl getinpntbt
-00000304:             ; 
-00000304: E28F0091    ;     adrl r0, heightinp
-00000308: E2800B01    ; 
-0000030C: EB00007F    ;     bl str2int
-00000310:             ;     ;;get input()
-00000310:             ;     ;;unfortunately we must convert this input into a decimal value from the string
-00000310:             ; 
-00000310: EF000004    ;     swi 4
-00000314: E5CF0489    ;     strb r0, height
-00000318:             ; 
-00000318: E3A0000A    ;     mov r0, #10
-0000031C: EF000000    ;     swi 0
-00000320:             ; 
-00000320: E8BD4000    ;     pop {r14}
-00000324: E1A0F00E    ;     mov r15, r14
-00000328:             ; 
-00000328:             ; getinpntbt ;;get input null terminated or bang terminated
-00000328:             ; ;;in R0 have a ptr to the mem adr to store to
-00000328:             ; ;;in R1 have the max number of characters to read in
-00000328: E3A02000    ;     mov r2, #0 ;;i
-0000032C: E1A03000    ;     mov r3, r0 ;;r3 holds the mem addr
-00000330:             ; gintloop
-00000330: E1520001    ;     cmp r2, r1
-00000334: AA000005    ;     bge gintend
-00000338:             ; 
-00000338: EF000001    ;     swi 1
-0000033C: E3500021    ;     cmp r0, #33
-00000340:             ; 
-00000340: 0A000002    ;     beq gintend
+0000029C: E28F00EA    ;     adrl r0, failmsg
+000002A0: E2800B01    ; 
+000002A4: EF000003    ;     swi 3
+000002A8:             ; ggend
+000002A8: E8BD4000    ;     pop {r14}
+000002AC: E1A0F00E    ;     mov r15, r14
+000002B0:             ; 
+000002B0:             ; getdims
+000002B0: E92D4000    ;     push {r14}
+000002B4: E28F0059    ;     adrl r0, getwidthmsg
+000002B8: E2800C03    ; 
+000002BC: EF000003    ;     swi 3
+000002C0:             ; 
+000002C0: E28F00FC    ;     adrl r0, widthinp
+000002C4: E2800B01    ; 
+000002C8: E3A01002    ;     mov r1, #2
+000002CC: EB000016    ;     bl getinpntbt
+000002D0:             ; 
+000002D0: E28F00EC    ;     adrl r0, widthinp
+000002D4: E2800B01    ; 
+000002D8: EB00008D    ;     bl str2int
+000002DC:             ;     ;;get input()
+000002DC:             ;     ;;unfortunately we must convert this input into a decimal value from the string
+000002DC:             ; 
+000002DC: EF000004    ;     swi 4
+000002E0: E5CF04E6    ;     strb r0, width
+000002E4:             ; 
+000002E4: E3A0000A    ;     mov r0, #10
+000002E8: EF000000    ;     swi 0
+000002EC:             ; 
+000002EC: E28F0072    ;     adrl r0, getheightmsg
+000002F0: E2800C03    ; 
+000002F4: EF000003    ;     swi 3
+000002F8:             ; 
+000002F8: E28F00C7    ;     adrl r0, heightinp
+000002FC: E2800B01    ; 
+00000300: E3A01002    ;     mov r1, #2
+00000304: EB000008    ;     bl getinpntbt
+00000308:             ; 
+00000308: E28F00B7    ;     adrl r0, heightinp
+0000030C: E2800B01    ; 
+00000310: EB00007F    ;     bl str2int
+00000314:             ;     ;;get input()
+00000314:             ;     ;;unfortunately we must convert this input into a decimal value from the string
+00000314:             ; 
+00000314: EF000004    ;     swi 4
+00000318: E5CF04AF    ;     strb r0, height
+0000031C:             ; 
+0000031C: E3A0000A    ;     mov r0, #10
+00000320: EF000000    ;     swi 0
+00000324:             ; 
+00000324: E8BD4000    ;     pop {r14}
+00000328: E1A0F00E    ;     mov r15, r14
+0000032C:             ; 
+0000032C:             ; getinpntbt ;;get input null terminated or bang terminated
+0000032C:             ; ;;in R0 have a ptr to the mem adr to store to
+0000032C:             ; ;;in R1 have the max number of characters to read in
+0000032C: E3A02000    ;     mov r2, #0 ;;i
+00000330: E1A03000    ;     mov r3, r0 ;;r3 holds the mem addr
+00000334:             ; gintloop
+00000334: E1520001    ;     cmp r2, r1
+00000338: AA000005    ;     bge gintend
+0000033C:             ; 
+0000033C: EF000001    ;     swi 1
+00000340: E3500021    ;     cmp r0, #33
 00000344:             ; 
-00000344: E7C30002    ;     strb r0, [r3, r2]
-00000348: E2822001    ;     add r2, r2, #1
-0000034C:             ; 
-0000034C: EAFFFFF7    ;     b gintloop
-00000350:             ;     
-00000350:             ; gintend
-00000350: E3A00000    ;     mov r0, #0
-00000354: E7C30002    ;     strb r0, [r3, r2]
-00000358: E1A0F00E    ;     mov r15, r14
-0000035C:             ; 
-0000035C:             ; getdrawing
-0000035C:             ; ;;for i from 0 to rows - 1
-0000035C:             ; ;;  for j from 0 to cols - 1
-0000035C:             ; ;;      getinput()
-0000035C:             ; ;;      write to location
-0000035C:             ; ;;      print grid
-0000035C: E28F002A    ;     adrl r0, getdrawingmsg
-00000360: E2800C03    ; 
+00000344: 0A000002    ;     beq gintend
+00000348:             ; 
+00000348: E7C30002    ;     strb r0, [r3, r2]
+0000034C: E2822001    ;     add r2, r2, #1
+00000350:             ; 
+00000350: EAFFFFF7    ;     b gintloop
+00000354:             ;     
+00000354:             ; gintend
+00000354: E3A00000    ;     mov r0, #0
+00000358: E7C30002    ;     strb r0, [r3, r2]
+0000035C: E1A0F00E    ;     mov r15, r14
+00000360:             ; 
+00000360:             ; getdrawing
+00000360:             ; ;;for i from 0 to rows - 1
+00000360:             ; ;;  for j from 0 to cols - 1
+00000360:             ; ;;      getinput()
+00000360:             ; ;;      write to location
+00000360:             ; ;;      print grid
+00000360: E28F0E35    ;     adrl r0, getdrawingmsg
 00000364: EF000003    ;     swi 3
 00000368:             ; 
 00000368: EF000001    ;     swi 1
@@ -362,64 +359,64 @@ KMD
 0000036C: E3A03000    ;     mov r3, #0 ;;i
 00000370: E3A01000    ;     mov r1, #0
 00000374:             ; gdouterloop
-00000374: E5DF2428    ;     ldrb r2, width
+00000374: E5DF2452    ;     ldrb r2, width
 00000378: E1530002    ;     cmp r3, r2
-0000037C: 0A000018    ;     beq gdend
+0000037C: 0A000017    ;     beq gdend
 00000380:             ; 
 00000380:             ; gdinnerloop
-00000380: E5DF241D    ;     ldrb r2, height
+00000380: E5DF2447    ;     ldrb r2, height
 00000384: E1510002    ;     cmp r1, r2
-00000388: 0A000012    ;     beq gdinnerlend
+00000388: 0A000011    ;     beq gdinnerlend
 0000038C:             ; gdinp
 0000038C: EF000001    ;     swi 1 ;;get input
 00000390: E3500030    ;     cmp r0, #48 ;;0
-00000394: 0A000005    ;     beq gdwrite
+00000394: 0A000004    ;     beq gdwrite
 00000398: E3500031    ;     cmp r0, #49 ;;1
-0000039C: 0A000003    ;     beq gdwrite
+0000039C: 0A000002    ;     beq gdwrite
 000003A0:             ; 
-000003A0: E28F00D6    ;     adrl r0, gderrormsg
-000003A4: E2800C03    ; 
-000003A8: EF000003    ;     swi 3
-000003AC: EAFFFFF6    ;     b gdinp
-000003B0:             ; 
-000003B0:             ; gdwrite
-000003B0: E2400030    ;     sub r0, r0, #48
-000003B4: E1A02000    ;     mov r2, r0 ;;store the value in r2 i.e. 1 or 0
-000003B8: E1A00003    ;     mov r0, r3
-000003BC: E1A0900A    ;     mov r9, r10
-000003C0: E92D000A    ;     push {r1, r3}
-000003C4: EB000026    ;     bl sett
-000003C8:             ; 
-000003C8: EB00002D    ;     bl drawgrid
-000003CC: E8BD000A    ;     pop {r1, r3}
-000003D0:             ; 
-000003D0: E2811001    ;     add r1, r1, #1
-000003D4: EAFFFFE9    ;     b gdinnerloop
-000003D8:             ; 
-000003D8:             ; gdinnerlend
-000003D8: E3A01000    ;     mov r1, #0
-000003DC: E2833001    ;     add r3, r3, #1
-000003E0: EAFFFFE3    ;     b gdouterloop
-000003E4:             ; 
-000003E4:             ; gdend
-000003E4: E28F001B    ;     adrl r0, drawingcmplmsg
-000003E8: E2800C03    ; 
-000003EC: EF000003    ;     swi 3
-000003F0: EF000001    ;     swi 1
-000003F4: EAFFFFAA    ;     b ggend
+000003A0: E28F0B01    ;     adrl r0, gderrormsg
+000003A4: EF000003    ;     swi 3
+000003A8: EAFFFFF7    ;     b gdinp
+000003AC:             ; 
+000003AC:             ; gdwrite
+000003AC: E2400030    ;     sub r0, r0, #48
+000003B0: E1A02000    ;     mov r2, r0 ;;store the value in r2 i.e. 1 or 0
+000003B4: E1A00003    ;     mov r0, r3
+000003B8: E1A0900A    ;     mov r9, r10
+000003BC: E92D000A    ;     push {r1, r3}
+000003C0: EB000027    ;     bl sett
+000003C4:             ; 
+000003C4: EB00002E    ;     bl drawgrid
+000003C8: E8BD000A    ;     pop {r1, r3}
+000003CC:             ; 
+000003CC: E2811001    ;     add r1, r1, #1
+000003D0: EAFFFFEA    ;     b gdinnerloop
+000003D4:             ; 
+000003D4:             ; gdinnerlend
+000003D4: E3A01000    ;     mov r1, #0
+000003D8: E2833001    ;     add r3, r3, #1
+000003DC: EAFFFFE4    ;     b gdouterloop
+000003E0:             ; 
+000003E0:             ; gdend
+000003E0: E28F0049    ;     adrl r0, drawingcmplmsg
+000003E4: E2800C03    ; 
+000003E8: EF000003    ;     swi 3
+000003EC: EF000001    ;     swi 1
+000003F0: EAFFFFAC    ;     b ggend
+000003F4:             ; 
+000003F4:             ; gengridrandom
+000003F4:             ; ;;if it is to be random then prompt for a 4 character seed
+000003F4: EBFFFF87    ;     bl getseed
 000003F8:             ; 
-000003F8:             ; gengridrandom
-000003F8:             ; ;;if it is to be random then prompt for a 4 character seed
-000003F8: EBFFFF86    ;     bl getseed
-000003FC:             ; 
-000003FC: E28F9FE7    ;     adrl r9, seed
+000003F8: E28F90CA    ;     adrl r9, seed
+000003FC: E2899C03    ; 
 00000400: E5196000    ;     ldr r6, [r9] ;;r6 holds the random seed
 00000404:             ;     ;;for i from 0 to w * h - 1
 00000404: E3A07000    ;     mov r7, #0 ;;i
 00000408:             ; ggrloop
 00000408: E92D0060    ;     push {r5, r6}
-0000040C: E5DF5390    ;     ldrb r5, width
-00000410: E5DF638D    ;     ldrb r6, height
+0000040C: E5DF53BA    ;     ldrb r5, width
+00000410: E5DF63B7    ;     ldrb r6, height
 00000414: E0050695    ;     mul r5, r5, r6
 00000418: E1570005    ;     cmp r7, r5
 0000041C: E8BD0060    ;     pop {r5, r6}
@@ -432,7 +429,7 @@ KMD
 00000438: E0266007    ;     eor r6, r6, r7 ;;attempt to reduce repetition??
 0000043C: EAFFFFF1    ;     b ggrloop
 00000440:             ; ggrlend
-00000440: EAFFFF97    ;     b ggend
+00000440: EAFFFF98    ;     b ggend
 00000444:             ; 
 00000444:             ; gett ;;get is a keyword?
 00000444:             ; ;;just requires the x,y in R0, R1
@@ -442,7 +439,7 @@ KMD
 00000444:             ; ;;position of 6 = [1,2]
 00000444:             ; ;;  1 * width + 2 = 4
 00000444: E92D0460    ;     push {r5, r6, r10}
-00000448: E5DF5354    ;     ldrb r5, width
+00000448: E5DF537E    ;     ldrb r5, width
 0000044C: E0060590    ;     mul r6, r0, r5 ;;r6 = width * x
 00000450: E0866001    ;     add r6, r6, r1 ;;r6 = r6 + y
 00000454:             ;     ;;r6 holds the position in the array as an offset
@@ -454,7 +451,7 @@ KMD
 00000464:             ; sett
 00000464:             ; ;;x,y,value in R0, R1, R2 + addr of grid in R9 ;;late edition -_-
 00000464: E92D0038    ;     push {r3, r4, r5}
-00000468: E5DF3334    ;     ldrb r3, width
+00000468: E5DF335E    ;     ldrb r3, width
 0000046C: E0040390    ;     mul r4, r0, r3
 00000470: E0844001    ;     add r4, r4, r1
 00000474:             ; 
@@ -475,12 +472,12 @@ KMD
 00000484:             ; 
 00000484: E3A05000    ;     mov r5, #0 ;;row
 00000488:             ; outerloop
-00000488: E5DF6315    ;     ldrb r6, height
+00000488: E5DF633F    ;     ldrb r6, height
 0000048C: E1550006    ;     cmp r5, r6
 00000490: 0A000014    ;     beq outerlend
 00000494: E3A06000    ;     mov r6, #0 ;;col
 00000498:             ; innerloop
-00000498: E5DF7304    ;     ldrb r7, width
+00000498: E5DF732E    ;     ldrb r7, width
 0000049C: E1560007    ;     cmp r6, r7
 000004A0: 0A00000C    ;     beq innerlend
 000004A4:             ; 
@@ -511,232 +508,240 @@ KMD
 000004E8: E3A05000    ;     mov r5, #0
 000004EC: E3A0002D    ;     mov r0, #45
 000004F0:             ; endloop
-000004F0: E3550016    ;     cmp r5, #22
-000004F4: 0A000002    ;     beq endlend
-000004F8: EF000000    ;     swi 0
-000004FC: E2855001    ;     add r5, r5, #1
-00000500: EAFFFFFA    ;     b endloop
-00000504:             ; endlend
-00000504: E3A0000A    ;     mov r0, #10
-00000508: EF000000    ;     swi 0
-0000050C: E1A0F00E    ;     mov r15, r14
-00000510:             ; 
-00000510:             ; 
-00000510:             ; str2int
-00000510:             ; ;;this takes in a str buffer adr in R0 which points to a null terminated string to be converted
-00000510:             ; ;;returns the int value in R0, R1 will be 1 if there was an error?
-00000510: E92D4001    ;     push {r14, r0}
+000004F0: E5DF72D6    ;     ldrb r7, width
+000004F4: E1550087    ;     cmp r5, r7, lsl #1;;
+000004F8: 0A000002    ;     beq endlend
+000004FC: EF000000    ;     swi 0
+00000500: E2855001    ;     add r5, r5, #1
+00000504: EAFFFFF9    ;     b endloop
+00000508:             ; endlend
+00000508: E3A0000A    ;     mov r0, #10
+0000050C: EF000000    ;     swi 0
+00000510: E1A0F00E    ;     mov r15, r14
 00000514:             ; 
-00000514: EB00001A    ;     bl s2icount
-00000518:             ;     ;;r0 holds the number of characters
-00000518:             ;     ;;pop to get adr of string 
-00000518: E1A08000    ;     mov r8, r0 ;;r8 holds count
-0000051C: E1A09008    ;     mov r9, r8
-00000520: E8BD0001    ;     pop {r0}
-00000524:             ;     ;;e.g. if count == 3 then first int would be x * (10 ** 2) or x * (10 ** (count -= 1))
-00000524: E3A02000    ;     mov r2, #0 ;;offset
-00000528: E3A07000    ;     mov r7, #0 ;;r6 holds the total value
-0000052C:             ; s2iloop
-0000052C: E1520009    ;     cmp r2, r9 ;;have we done all of the numbers
-00000530: 0A000010    ;     beq s2iend
-00000534: E3A04001    ;     mov r4, #1 ;;r4 will hold the temp add value
-00000538: E7D03002    ;     ldrb r3, [r0, r2]
-0000053C:             ;     ;;r3 holds the value
-0000053C: E2433030    ;     sub r3, r3, #48 ;;remove ascii
-00000540: E3A05001    ;     mov r5, #1 ;;i for inner loop ;;its 1 to account for count - 1
-00000544: E3580000    ;     cmp r8, #0 ;;if count == 0 then a) something is wrong with my input, and b) see a
-00000548: 0A000005    ;     beq s2iinnerlend
-0000054C:             ; s2iinnerloop ;;used to get 10 ** (count - 1)
-0000054C: E1550008    ;     cmp r5, r8 ;; cmp i to count
-00000550: AA000003    ;     bge s2iinnerlend
-00000554: E3A0600A    ;     mov r6, #10
-00000558: E0040694    ;     mul r4, r4, r6
-0000055C: E2855001    ;     add r5, r5, #1
-00000560: EAFFFFF9    ;     b s2iinnerloop
-00000564:             ; s2iinnerlend
-00000564:             ;     ;;we now have 10 ** correctly so * x
-00000564: E0040394    ;     mul r4, r4, r3
-00000568: E0877004    ;     add r7, r7, r4
-0000056C: E2822001    ;     add r2, r2, #1
-00000570: E2488001    ;     sub r8, r8, #1
-00000574: EAFFFFEC    ;     b s2iloop
-00000578:             ; s2iend
-00000578: E8BD4000    ;     pop {r14}
-0000057C: E1A00007    ;     mov r0, r7
-00000580: E1A0F00E    ;     mov r15, r14
-00000584:             ; 
-00000584:             ; s2icount
-00000584:             ; ;;counts the number of characters stored in a buffer (adr in R0) does NOT include the null term
+00000514:             ; 
+00000514:             ; str2int
+00000514:             ; ;;this takes in a str buffer adr in R0 which points to a null terminated string to be converted
+00000514:             ; ;;returns the int value in R0, R1 will be 1 if there was an error?
+00000514: E92D4001    ;     push {r14, r0}
+00000518:             ; 
+00000518: EB00001A    ;     bl s2icount
+0000051C:             ;     ;;r0 holds the number of characters
+0000051C:             ;     ;;pop to get adr of string 
+0000051C: E1A08000    ;     mov r8, r0 ;;r8 holds count
+00000520: E1A09008    ;     mov r9, r8
+00000524: E8BD0001    ;     pop {r0}
+00000528:             ;     ;;e.g. if count == 3 then first int would be x * (10 ** 2) or x * (10 ** (count -= 1))
+00000528: E3A02000    ;     mov r2, #0 ;;offset
+0000052C: E3A07000    ;     mov r7, #0 ;;r6 holds the total value
+00000530:             ; s2iloop
+00000530: E1520009    ;     cmp r2, r9 ;;have we done all of the numbers
+00000534: 0A000010    ;     beq s2iend
+00000538: E3A04001    ;     mov r4, #1 ;;r4 will hold the temp add value
+0000053C: E7D03002    ;     ldrb r3, [r0, r2]
+00000540:             ;     ;;r3 holds the value
+00000540: E2433030    ;     sub r3, r3, #48 ;;remove ascii
+00000544: E3A05001    ;     mov r5, #1 ;;i for inner loop ;;its 1 to account for count - 1
+00000548: E3580000    ;     cmp r8, #0 ;;if count == 0 then a) something is wrong with my input, and b) see a
+0000054C: 0A000005    ;     beq s2iinnerlend
+00000550:             ; s2iinnerloop ;;used to get 10 ** (count - 1)
+00000550: E1550008    ;     cmp r5, r8 ;; cmp i to count
+00000554: AA000003    ;     bge s2iinnerlend
+00000558: E3A0600A    ;     mov r6, #10
+0000055C: E0040694    ;     mul r4, r4, r6
+00000560: E2855001    ;     add r5, r5, #1
+00000564: EAFFFFF9    ;     b s2iinnerloop
+00000568:             ; s2iinnerlend
+00000568:             ;     ;;we now have 10 ** correctly so * x
+00000568: E0040394    ;     mul r4, r4, r3
+0000056C: E0877004    ;     add r7, r7, r4
+00000570: E2822001    ;     add r2, r2, #1
+00000574: E2488001    ;     sub r8, r8, #1
+00000578: EAFFFFEC    ;     b s2iloop
+0000057C:             ; s2iend
+0000057C: E8BD4000    ;     pop {r14}
+00000580: E1A00007    ;     mov r0, r7
+00000584: E1A0F00E    ;     mov r15, r14
+00000588:             ; 
+00000588:             ; s2icount
+00000588:             ; ;;counts the number of characters stored in a buffer (adr in R0) does NOT include the null term
                       ; inator
-00000584: E3A02000    ;     mov r2, #0 ;;offset
-00000588:             ; s2icloop
-00000588: E7D03002    ;     ldrb r3, [r0, r2] ;;adr + offset
-0000058C: E3530000    ;     cmp r3, #0
-00000590: 0A000001    ;     beq s2iclend ;;naming is hard
-00000594:             ; 
-00000594: E2822001    ;     add r2, r2, #1
-00000598: EAFFFFFA    ;     b s2icloop
-0000059C:             ; s2iclend
-0000059C: E1A00002    ;     mov r0, r2
-000005A0: E1A0F00E    ;     mov r15, r14
-000005A4:             ; 
-000005A4:             ; 
-000005A4:             ; 
-000005A4:             ; 
-000005A4: 50 6C 65 61 ; getchoicemsg defb "Please enter (s) to input a seed or (d) to draw the grid with inputs\n", 0
-000005A8: 73 65 20 65 ; 
-000005AC: 6E 74 65 72 ; 
-000005B0: 20 28 73 29 ; 
-000005B4: 20 74 6F 20 ; 
-000005B8: 69 6E 70 75 ; 
-000005BC: 74 20 61 20 ; 
-000005C0: 73 65 65 64 ; 
-000005C4: 20 6F 72 20 ; 
-000005C8: 28 64 29 20 ; 
-000005CC: 74 6F 20 64 ; 
-000005D0: 72 61 77 20 ; 
-000005D4: 74 68 65 20 ; 
-000005D8: 67 72 69 64 ; 
-000005DC: 20 77 69 74 ; 
-000005E0: 68 20 69 6E ; 
-000005E4: 70 75 74 73 ; 
-000005E8: 0A 00       ; 
-000005EA: 50 6C 65 61 ; getseedmsg defb "Please enter 4 characters as the seed\n", 0
-000005EE: 73 65 20 65 ; 
-000005F2: 6E 74 65 72 ; 
-000005F6: 20 34 20 63 ; 
-000005FA: 68 61 72 61 ; 
-000005FE: 63 74 65 72 ; 
-00000602: 73 20 61 73 ; 
-00000606: 20 74 68 65 ; 
-0000060A: 20 73 65 65 ; 
-0000060E: 64 0A 00    ; 
-00000611: 50 6C 65 61 ; getwidthmsg defb "Please enter width (a +ve int between 1-30) followed by '!': ", 0
-00000615: 73 65 20 65 ; 
-00000619: 6E 74 65 72 ; 
-0000061D: 20 77 69 64 ; 
-00000621: 74 68 20 28 ; 
-00000625: 61 20 2B 76 ; 
-00000629: 65 20 69 6E ; 
-0000062D: 74 20 62 65 ; 
-00000631: 74 77 65 65 ; 
-00000635: 6E 20 31 2D ; 
-00000639: 33 30 29 20 ; 
-0000063D: 66 6F 6C 6C ; 
-00000641: 6F 77 65 64 ; 
-00000645: 20 62 79 20 ; 
-00000649: 27 21 27 3A ; 
-0000064D: 20 00       ; 
-0000064F: 50 6C 65 61 ; getheightmsg defb "Please enter height (a +ve int between 1-30) followed by '!': ", 0
-00000653: 73 65 20 65 ; 
-00000657: 6E 74 65 72 ; 
-0000065B: 20 68 65 69 ; 
-0000065F: 67 68 74 20 ; 
-00000663: 28 61 20 2B ; 
-00000667: 76 65 20 69 ; 
-0000066B: 6E 74 20 62 ; 
-0000066F: 65 74 77 65 ; 
-00000673: 65 6E 20 31 ; 
-00000677: 2D 33 30 29 ; 
-0000067B: 20 66 6F 6C ; 
-0000067F: 6C 6F 77 65 ; 
-00000683: 64 20 62 79 ; 
-00000687: 20 27 21 27 ; 
-0000068B: 3A 20 00    ; 
-0000068E: 59 6F 75 20 ; getdrawingmsg defb "You must enter a 1 or 0 for each pixel in the grid, after each input the gr
-00000692: 6D 75 73 74 ; id will be drawn. Press any key to continue.\n", 0
-00000696: 20 65 6E 74 ; 
-0000069A: 65 72 20 61 ; 
-0000069E: 20 31 20 6F ; 
-000006A2: 72 20 30 20 ; 
-000006A6: 66 6F 72 20 ; 
-000006AA: 65 61 63 68 ; 
-000006AE: 20 70 69 78 ; 
-000006B2: 65 6C 20 69 ; 
-000006B6: 6E 20 74 68 ; 
-000006BA: 65 20 67 72 ; 
-000006BE: 69 64 2C 20 ; 
-000006C2: 61 66 74 65 ; 
-000006C6: 72 20 65 61 ; 
-000006CA: 63 68 20 69 ; 
-000006CE: 6E 70 75 74 ; 
-000006D2: 20 74 68 65 ; 
-000006D6: 20 67 72 69 ; 
-000006DA: 64 20 77 69 ; 
-000006DE: 6C 6C 20 62 ; 
-000006E2: 65 20 64 72 ; 
-000006E6: 61 77 6E 2E ; 
-000006EA: 20 50 72 65 ; 
-000006EE: 73 73 20 61 ; 
-000006F2: 6E 79 20 6B ; 
-000006F6: 65 79 20 74 ; 
-000006FA: 6F 20 63 6F ; 
-000006FE: 6E 74 69 6E ; 
-00000702: 75 65 2E 0A ; 
-00000706: 00          ; 
-00000707: 44 72 61 77 ; drawingcmplmsg defb "Drawing complete! press any key to begin simulation\n",0
-0000070B: 69 6E 67 20 ; 
-0000070F: 63 6F 6D 70 ; 
-00000713: 6C 65 74 65 ; 
-00000717: 21 20 70 72 ; 
-0000071B: 65 73 73 20 ; 
-0000071F: 61 6E 79 20 ; 
-00000723: 6B 65 79 20 ; 
-00000727: 74 6F 20 62 ; 
-0000072B: 65 67 69 6E ; 
-0000072F: 20 73 69 6D ; 
-00000733: 75 6C 61 74 ; 
-00000737: 69 6F 6E 0A ; 
-0000073B: 00          ; 
-0000073C: 44 6F 20 79 ; slowmodemsg defb "Do you want to active slowmode? (Y/n): ", 0
-00000740: 6F 75 20 77 ; 
-00000744: 61 6E 74 20 ; 
-00000748: 74 6F 20 61 ; 
-0000074C: 63 74 69 76 ; 
-00000750: 65 20 73 6C ; 
-00000754: 6F 77 6D 6F ; 
-00000758: 64 65 3F 20 ; 
-0000075C: 28 59 2F 6E ; 
-00000760: 29 3A 20 00 ; 
-00000764:             ; 
-00000764: 59 6F 75 20 ; failmsg defb "You dun messed it all up\n", 0
-00000768: 64 75 6E 20 ; 
-0000076C: 6D 65 73 73 ; 
-00000770: 65 64 20 69 ; 
-00000774: 74 20 61 6C ; 
-00000778: 6C 20 75 70 ; 
-0000077C: 0A 00       ; 
-0000077E: 50 6C 65 61 ; gderrormsg defb "Please enter either 0 or 1\n", 0
-00000782: 73 65 20 65 ; 
-00000786: 6E 74 65 72 ; 
-0000078A: 20 65 69 74 ; 
-0000078E: 68 65 72 20 ; 
-00000792: 30 20 6F 72 ; 
-00000796: 20 31 0A 00 ; 
-0000079A:             ; 
-0000079A:             ; widthinp defs 3;;2 bytes for the width input i.e. the characters as max should be `30` + \0 for
+00000588: E3A02000    ;     mov r2, #0 ;;offset
+0000058C:             ; s2icloop
+0000058C: E7D03002    ;     ldrb r3, [r0, r2] ;;adr + offset
+00000590: E3530000    ;     cmp r3, #0
+00000594: 0A000001    ;     beq s2iclend ;;naming is hard
+00000598:             ; 
+00000598: E2822001    ;     add r2, r2, #1
+0000059C: EAFFFFFA    ;     b s2icloop
+000005A0:             ; s2iclend
+000005A0: E1A00002    ;     mov r0, r2
+000005A4: E1A0F00E    ;     mov r15, r14
+000005A8:             ; 
+000005A8: 50 6C 65 61 ; getchoicemsg defb "Please enter (s) to input a seed or (d) to draw the grid with inputs\n", 0
+000005AC: 73 65 20 65 ; 
+000005B0: 6E 74 65 72 ; 
+000005B4: 20 28 73 29 ; 
+000005B8: 20 74 6F 20 ; 
+000005BC: 69 6E 70 75 ; 
+000005C0: 74 20 61 20 ; 
+000005C4: 73 65 65 64 ; 
+000005C8: 20 6F 72 20 ; 
+000005CC: 28 64 29 20 ; 
+000005D0: 74 6F 20 64 ; 
+000005D4: 72 61 77 20 ; 
+000005D8: 74 68 65 20 ; 
+000005DC: 67 72 69 64 ; 
+000005E0: 20 77 69 74 ; 
+000005E4: 68 20 69 6E ; 
+000005E8: 70 75 74 73 ; 
+000005EC: 0A 00       ; 
+000005EE: 50 6C 65 61 ; getseedmsg defb "Please enter 4 characters as the seed\n", 0
+000005F2: 73 65 20 65 ; 
+000005F6: 6E 74 65 72 ; 
+000005FA: 20 34 20 63 ; 
+000005FE: 68 61 72 61 ; 
+00000602: 63 74 65 72 ; 
+00000606: 73 20 61 73 ; 
+0000060A: 20 74 68 65 ; 
+0000060E: 20 73 65 65 ; 
+00000612: 64 0A 00    ; 
+00000615: 50 6C 65 61 ; getwidthmsg defb "Please enter width (a +ve int between 1-30) (use ! at end if its only 1 digit
+00000619: 73 65 20 65 ; ): ", 0
+0000061D: 6E 74 65 72 ; 
+00000621: 20 77 69 64 ; 
+00000625: 74 68 20 28 ; 
+00000629: 61 20 2B 76 ; 
+0000062D: 65 20 69 6E ; 
+00000631: 74 20 62 65 ; 
+00000635: 74 77 65 65 ; 
+00000639: 6E 20 31 2D ; 
+0000063D: 33 30 29 20 ; 
+00000641: 28 75 73 65 ; 
+00000645: 20 21 20 61 ; 
+00000649: 74 20 65 6E ; 
+0000064D: 64 20 69 66 ; 
+00000651: 20 69 74 73 ; 
+00000655: 20 6F 6E 6C ; 
+00000659: 79 20 31 20 ; 
+0000065D: 64 69 67 69 ; 
+00000661: 74 29 3A 20 ; 
+00000665: 00          ; 
+00000666: 50 6C 65 61 ; getheightmsg defb "Please enter height (a +ve int between 1-30) (use ! at end if its only 1 dig
+0000066A: 73 65 20 65 ; it): ", 0
+0000066E: 6E 74 65 72 ; 
+00000672: 20 68 65 69 ; 
+00000676: 67 68 74 20 ; 
+0000067A: 28 61 20 2B ; 
+0000067E: 76 65 20 69 ; 
+00000682: 6E 74 20 62 ; 
+00000686: 65 74 77 65 ; 
+0000068A: 65 6E 20 31 ; 
+0000068E: 2D 33 30 29 ; 
+00000692: 20 28 75 73 ; 
+00000696: 65 20 21 20 ; 
+0000069A: 61 74 20 65 ; 
+0000069E: 6E 64 20 69 ; 
+000006A2: 66 20 69 74 ; 
+000006A6: 73 20 6F 6E ; 
+000006AA: 6C 79 20 31 ; 
+000006AE: 20 64 69 67 ; 
+000006B2: 69 74 29 3A ; 
+000006B6: 20 00       ; 
+000006B8: 59 6F 75 20 ; getdrawingmsg defb "You must enter a 1 or 0 for each pixel in the grid, after each input the gr
+000006BC: 6D 75 73 74 ; id will be drawn. Press any key to continue.\n", 0
+000006C0: 20 65 6E 74 ; 
+000006C4: 65 72 20 61 ; 
+000006C8: 20 31 20 6F ; 
+000006CC: 72 20 30 20 ; 
+000006D0: 66 6F 72 20 ; 
+000006D4: 65 61 63 68 ; 
+000006D8: 20 70 69 78 ; 
+000006DC: 65 6C 20 69 ; 
+000006E0: 6E 20 74 68 ; 
+000006E4: 65 20 67 72 ; 
+000006E8: 69 64 2C 20 ; 
+000006EC: 61 66 74 65 ; 
+000006F0: 72 20 65 61 ; 
+000006F4: 63 68 20 69 ; 
+000006F8: 6E 70 75 74 ; 
+000006FC: 20 74 68 65 ; 
+00000700: 20 67 72 69 ; 
+00000704: 64 20 77 69 ; 
+00000708: 6C 6C 20 62 ; 
+0000070C: 65 20 64 72 ; 
+00000710: 61 77 6E 2E ; 
+00000714: 20 50 72 65 ; 
+00000718: 73 73 20 61 ; 
+0000071C: 6E 79 20 6B ; 
+00000720: 65 79 20 74 ; 
+00000724: 6F 20 63 6F ; 
+00000728: 6E 74 69 6E ; 
+0000072C: 75 65 2E 0A ; 
+00000730: 00          ; 
+00000731: 44 72 61 77 ; drawingcmplmsg defb "Drawing complete! press any key to begin simulation\n",0
+00000735: 69 6E 67 20 ; 
+00000739: 63 6F 6D 70 ; 
+0000073D: 6C 65 74 65 ; 
+00000741: 21 20 70 72 ; 
+00000745: 65 73 73 20 ; 
+00000749: 61 6E 79 20 ; 
+0000074D: 6B 65 79 20 ; 
+00000751: 74 6F 20 62 ; 
+00000755: 65 67 69 6E ; 
+00000759: 20 73 69 6D ; 
+0000075D: 75 6C 61 74 ; 
+00000761: 69 6F 6E 0A ; 
+00000765: 00          ; 
+00000766: 44 6F 20 79 ; slowmodemsg defb "Do you want to active slowmode? (Y/n): ", 0
+0000076A: 6F 75 20 77 ; 
+0000076E: 61 6E 74 20 ; 
+00000772: 74 6F 20 61 ; 
+00000776: 63 74 69 76 ; 
+0000077A: 65 20 73 6C ; 
+0000077E: 6F 77 6D 6F ; 
+00000782: 64 65 3F 20 ; 
+00000786: 28 59 2F 6E ; 
+0000078A: 29 3A 20 00 ; 
+0000078E:             ; 
+0000078E: 59 6F 75 20 ; failmsg defb "You dun messed it all up\n", 0
+00000792: 64 75 6E 20 ; 
+00000796: 6D 65 73 73 ; 
+0000079A: 65 64 20 69 ; 
+0000079E: 74 20 61 6C ; 
+000007A2: 6C 20 75 70 ; 
+000007A6: 0A 00       ; 
+000007A8: 50 6C 65 61 ; gderrormsg defb "Please enter either 0 or 1\n", 0
+000007AC: 73 65 20 65 ; 
+000007B0: 6E 74 65 72 ; 
+000007B4: 20 65 69 74 ; 
+000007B8: 68 65 72 20 ; 
+000007BC: 30 20 6F 72 ; 
+000007C0: 20 31 0A 00 ; 
+000007C4:             ; 
+000007C4:             ; widthinp defs 3;;2 bytes for the width input i.e. the characters as max should be `30` + \0 for
                       ;  end
-0000079D:             ; heightinp defs 3;;same for the height
-000007A0:             ; 
-000007A0: 00000000    ; seed defw 0
-000007A4:             ; 
-000007A4: 0A          ; width defb 10
-000007A5: 0A          ; height defb 10
-000007A6:             ; 
-000007A6: 00          ; slowmode defb 0
-000007A7:             ; 
-000007A7: FF FF FF 00 ; offsets defb -1,-1,-1,0,1,0,0,1,0,-1,1,1,-1,1,1,-1
-000007AB: 01 00 00 01 ; 
-000007AF: 00 FF 01 01 ; 
-000007B3: FF 01 01 FF ; 
-000007B7:             ; 
-000007B7:             ; ;;the grids are 20 * 20 pixels
-000007B7:             ; ;;grida defs w * h
-000007B7:             ; ;;gridb defs w * h
-000007B7:             ; grida defs 30 * 30 
-00000B3B:             ; gridb defs 30 * 30
-00000EBF:             ; 
-00000EBF:             ; ;;this is the max size that the grids can be under the current I cannot reserve dynamicaly?
+000007C7:             ; heightinp defs 3;;same for the height
+000007CA:             ; 
+000007CA: 00000000    ; seed defw 0
+000007CE:             ; 
+000007CE: 0A          ; width defb 10
+000007CF: 0A          ; height defb 10
+000007D0:             ; 
+000007D0: 00          ; slowmode defb 0
+000007D1:             ; 
+000007D1: FF FF FF 00 ; offsets defb -1,-1,-1,0,1,0,0,1,0,-1,1,1,-1,1,1,-1
+000007D5: 01 00 00 01 ; 
+000007D9: 00 FF 01 01 ; 
+000007DD: FF 01 01 FF ; 
+000007E1:             ; 
+000007E1:             ; ;;the grids are 20 * 20 pixels
+000007E1:             ; ;;grida defs w * h
+000007E1:             ; ;;gridb defs w * h
+000007E1:             ; grida defs 30 * 30 
+00000B65:             ; gridb defs 30 * 30
+00000EE9:             ; 
+00000EE9:             ; ;;this is the max size that the grids can be under the current I cannot reserve dynamicaly?
 
 Symbol Table: Labels
 : w                                 00000014  Value
@@ -770,19 +775,19 @@ Symbol Table: Labels
 : initend                           00000214  Local -- ARM
 : getseed                           00000218  Local -- ARM
 : gengrid                           00000250  Local -- ARM
-: ggend                             000002A4  Local -- ARM
-: getdims                           000002AC  Local -- ARM
-: getinpntbt                        00000328  Local -- ARM
-: gintloop                          00000330  Local -- ARM
-: gintend                           00000350  Local -- ARM
-: getdrawing                        0000035C  Local -- ARM
+: ggend                             000002A8  Local -- ARM
+: getdims                           000002B0  Local -- ARM
+: getinpntbt                        0000032C  Local -- ARM
+: gintloop                          00000334  Local -- ARM
+: gintend                           00000354  Local -- ARM
+: getdrawing                        00000360  Local -- ARM
 : gdouterloop                       00000374  Local -- ARM
 : gdinnerloop                       00000380  Local -- ARM
 : gdinp                             0000038C  Local -- ARM
-: gdwrite                           000003B0  Local -- ARM
-: gdinnerlend                       000003D8  Local -- ARM
-: gdend                             000003E4  Local -- ARM
-: gengridrandom                     000003F8  Local -- ARM
+: gdwrite                           000003AC  Local -- ARM
+: gdinnerlend                       000003D4  Local -- ARM
+: gdend                             000003E0  Local -- ARM
+: gengridrandom                     000003F4  Local -- ARM
 : ggrloop                           00000408  Local -- ARM
 : ggrlend                           00000440  Local -- ARM
 : gett                              00000444  Local -- ARM
@@ -793,30 +798,30 @@ Symbol Table: Labels
 : innerlend                         000004D8  Local -- ARM
 : outerlend                         000004E8  Local -- ARM
 : endloop                           000004F0  Local -- ARM
-: endlend                           00000504  Local -- ARM
-: str2int                           00000510  Local -- ARM
-: s2iloop                           0000052C  Local -- ARM
-: s2iinnerloop                      0000054C  Local -- ARM
-: s2iinnerlend                      00000564  Local -- ARM
-: s2iend                            00000578  Local -- ARM
-: s2icount                          00000584  Local -- ARM
-: s2icloop                          00000588  Local -- ARM
-: s2iclend                          0000059C  Local -- ARM
-: getchoicemsg                      000005A4  Local -- ARM
-: getseedmsg                        000005EA  Local -- ARM
-: getwidthmsg                       00000611  Local -- ARM
-: getheightmsg                      0000064F  Local -- ARM
-: getdrawingmsg                     0000068E  Local -- ARM
-: drawingcmplmsg                    00000707  Local -- ARM
-: slowmodemsg                       0000073C  Local -- ARM
-: failmsg                           00000764  Local -- ARM
-: gderrormsg                        0000077E  Local -- ARM
-: widthinp                          0000079A  Local -- ARM
-: heightinp                         0000079D  Local -- ARM
-: seed                              000007A0  Local -- ARM
-: width                             000007A4  Local -- ARM
-: height                            000007A5  Local -- ARM
-: slowmode                          000007A6  Local -- ARM
-: offsets                           000007A7  Local -- ARM
-: grida                             000007B7  Local -- ARM
-: gridb                             00000B3B  Local -- ARM
+: endlend                           00000508  Local -- ARM
+: str2int                           00000514  Local -- ARM
+: s2iloop                           00000530  Local -- ARM
+: s2iinnerloop                      00000550  Local -- ARM
+: s2iinnerlend                      00000568  Local -- ARM
+: s2iend                            0000057C  Local -- ARM
+: s2icount                          00000588  Local -- ARM
+: s2icloop                          0000058C  Local -- ARM
+: s2iclend                          000005A0  Local -- ARM
+: getchoicemsg                      000005A8  Local -- ARM
+: getseedmsg                        000005EE  Local -- ARM
+: getwidthmsg                       00000615  Local -- ARM
+: getheightmsg                      00000666  Local -- ARM
+: getdrawingmsg                     000006B8  Local -- ARM
+: drawingcmplmsg                    00000731  Local -- ARM
+: slowmodemsg                       00000766  Local -- ARM
+: failmsg                           0000078E  Local -- ARM
+: gderrormsg                        000007A8  Local -- ARM
+: widthinp                          000007C4  Local -- ARM
+: heightinp                         000007C7  Local -- ARM
+: seed                              000007CA  Local -- ARM
+: width                             000007CE  Local -- ARM
+: height                            000007CF  Local -- ARM
+: slowmode                          000007D0  Local -- ARM
+: offsets                           000007D1  Local -- ARM
+: grida                             000007E1  Local -- ARM
+: gridb                             00000B65  Local -- ARM

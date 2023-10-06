@@ -1,5 +1,4 @@
 start
-    
     adr R0, hello 
     swi 3
 
