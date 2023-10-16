@@ -572,6 +572,8 @@ slowmodemsg defb "Do you want to active slowmode? (Y/n): ", 0
 failmsg defb "You dun messed it all up\n", 0
 gderrormsg defb "Please enter either 0 or 1\n", 0
 
+ALIGN
+
 widthinp defs 3;;2 bytes for the width input i.e. the characters as max should be `30` + \0 for end
 heightinp defs 3;;same for the height
 
