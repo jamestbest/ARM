@@ -8,8 +8,6 @@ collectInp
 	cmp R0, #0
 	beq end
 
-	ldr r0, 100
-
 	strb R0, [r8], #1
 
 	b collectInp
@@ -19,5 +17,3 @@ end
 
 align
 inp defs 12
-
-arr defw 1,2,3,4,5 

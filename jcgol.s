@@ -12,7 +12,7 @@ b start
 temp defb 14332 
 align
 start
-    mov r13, #0x10000 ;;WHAT ARE THE RULES?!?!?! Is some memory at the top ROM
+    mov r13, #0x10000 ;;There is only 1MB of memory and so move the sp to within the addr range
 
     mov r0, #0
     strb r0, slowmode
@@ -492,7 +492,8 @@ outerlend
     mov r5, #0
     mov r0, #45
 endloop
-    cmp r5, #22
+    ldrb r7, width
+    cmp r5, r7, lsl #1;;
     beq endlend
     swi 0
     add r5, r5, #1
