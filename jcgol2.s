@@ -49,7 +49,27 @@ _start
     mov r15, #0
 
 main
+    push {R14, R4-R8}
+
     bl setupOptions
+
+    mov R0, #12
+    bl malloc
+
+    mov R2, #14
+    str R2, [R0]
+    mov R2, #15
+    str R2, [R0, #4]
+
+    mov R4, R0
+    mov R0, #100
+    bl malloc
+
+
+    bl free
+
+    pop {R14, R4-R8}
+    mov R15, R14
 
 newline
     ldr R0, =nlchar
@@ -106,6 +126,8 @@ setupCustom
     ldr R0, =nlchar
     swi 0
     streqb R1, slow_b
+
+    mov R15, R14 ;;RET
 
 ;; The heap will be a linked list of free blocks - unlike the Comodo version which stores both free & taken blocks 
 ;; This is an idea I'm stealing from the C programming book
@@ -179,13 +201,24 @@ foundcrate
 splitcrate
     ;;In this case we have a large crate that should be split up.
     ;;Change the current crates size and give the mem addr for the end of the crates block?
-    ldr R2, [R1, #8] ;;get size
-    sub R2, R2, R0
-    str R2, [R1, #8] ;;store back size - bytesRequested
-    mov R0, R1
-    add R0, R0, #12         ;; address of crate + sizeof(Crate) + size
-    ldr R3, [R1, #8]        ;;
-    add R0, R0, R3          ;;
+    ldr R3, [R1, #8] ;;The size of the toSplit Crate
+    sub R3, R3, R0 ;; size - bytesRequested
+    sub R3, R3, #12 ;; size - bytesRequested - sizeof(Crate)
+    str R3, [R1, #8] ;;toSplit->size = newSize
+
+    add R3, R3, R1 ;; newSize + toSplit.addr
+    add R3, R3, #12 ;; newSize + toSplit.addr + sizeof(Crate) = position of new Crate
+
+    ;;Setup the header for the newCrate
+    mov R2, #0
+    str R2, [R3, #0] ;;next = 0
+    str R2, [R3, #4] ;;prev = 0
+    str R0, [R3, #8] ;;size = requested and aligned
+
+    ;;MAYBE: can the crates that are taken have a smaller header than those that are free. Taken crates need not store the next, prev free nodes
+    ;;This may complicate things as size would need to be moved around and the size from taken to free would be different. 
+
+    mov R0, R3
 
     mov R15, R14 ;;RET
 
@@ -225,7 +258,7 @@ free
 
     push {R4-R8}
 
-    ldr R1, [heapHead] ;;R1 will hold the current
+    ldr R1, heaphead ;;R1 will hold the current
 freeloop
     cmp R0, R1 ;;compare the address of the toFree to the address of current
     ble freelend ;;toFree.addr <= current.addr

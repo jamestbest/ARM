@@ -36,12 +36,12 @@ KMD
 00000004:             ;     ;;setup heap
 00000004: E92D4000    ;     push {R14}
 00000008:             ; 
-00000008: E28F0F7D    ;     adr R0, heapstart
-0000000C: E58F01E8    ;     str R0, heaphead
-00000010: EB000025    ;     bl setupHeap
+00000008: E28F0FBB    ;     adr R0, heapstart
+0000000C: E58F02E0    ;     str R0, heaphead
+00000010: EB000033    ;     bl setupHeap
 00000014:             ; 
 00000014: E3A0000E    ;     mov R0, #14
-00000018: EB00002C    ;     bl malloc
+00000018: EB00003A    ;     bl malloc
 0000001C:             ; 
 0000001C: EB000002    ;     bl main
 00000020:             ; 
@@ -50,240 +50,419 @@ KMD
 00000028: E3A0F000    ;     mov r15, #0
 0000002C:             ; 
 0000002C:             ; main
-0000002C: EB000002    ;     bl setupOptions
+0000002C: E92D41F0    ;     push {R14, R4-R8}
 00000030:             ; 
-00000030:             ; newline
-00000030: E3A0000A    ;     ldr R0, =nlchar
-00000034: EF000000    ;     swi 0
-00000038:             ; 
-00000038: E1A0F00E    ;     mov R15, R14
+00000030: EB00000E    ;     bl setupOptions
+00000034:             ; 
+00000034: E3A0000C    ;     mov R0, #12
+00000038: EB000032    ;     bl malloc
 0000003C:             ; 
-0000003C:             ; getstring
-0000003C:             ; ;;INP in R0 the terminator character
-0000003C:             ; ;;INP in R1 the max number of characters or -1 for no max
-0000003C:             ; ;;RET in R0 a ptr to the memory address
-0000003C:             ; ;;
-0000003C:             ; ;;Dynamically allocate memory to support large string
-0000003C:             ; 
-0000003C:             ; setupOptions
-0000003C: E28F0F46    ;     adrl R0, askdefaults ;;ask q
-00000040: EF000003    ;     swi 3
-00000044: EF000001    ;     swi 1   ;;get character answer
-00000048: EF000000    ;     swi 0
-0000004C: E3500059    ;     cmp R0, #'Y'
-00000050: E3A0000A    ;     ldr R0, =nlchar
-00000054: EF000000    ;     swi 0
+0000003C: E3A0200E    ;     mov R2, #14
+00000040: E5002000    ;     str R2, [R0]
+00000044: E3A0200F    ;     mov R2, #15
+00000048: E5802004    ;     str R2, [R0, #4]
+0000004C:             ; 
+0000004C: E1A04000    ;     mov R4, R0
+00000050: E3A00064    ;     mov R0, #100
+00000054: EB00002B    ;     bl malloc
 00000058:             ; 
-00000058: 1A000000    ;     bne setupCustom
+00000058:             ; 
+00000058: EB000051    ;     bl free
 0000005C:             ; 
-0000005C: E1A0F00E    ;     mov R15, R14 ;;RET
-00000060:             ; 
-00000060:             ; setupCustom
-00000060:             ; ;;ask for erase, slow, dims
-00000060: E3A01001    ;     mov R1, #1
+0000005C: E8BD41F0    ;     pop {R14, R4-R8}
+00000060: E1A0F00E    ;     mov R15, R14
 00000064:             ; 
-00000064: E28F0022    ;     adrl R0, askerase
-00000068: E2800C01    ; 
-0000006C: EF000003    ;     swi 3
-00000070: EF000001    ;     swi 1
-00000074: EF000000    ;     swi 0
-00000078: E3500059    ;     cmp R0, #'Y'
-0000007C: E3A0000A    ;     ldr R0, =nlchar
-00000080: EF000000    ;     swi 0
-00000084: 05CF1174    ;     streqb R1, erase_b
-00000088:             ;  
-00000088: E28F0017    ;     adrl R0, askslow
-0000008C: E2800C01    ; 
-00000090: EF000003    ;     swi 3
-00000094: EF000001    ;     swi 1
-00000098: EF000000    ;     swi 0 
-0000009C: E3500059    ;     cmp R0, #'Y' 
-000000A0: E3A0000A    ;     ldr R0, =nlchar
-000000A4: EF000000    ;     swi 0
-000000A8: 05CF1151    ;     streqb R1, slow_b
-000000AC:             ; 
-000000AC:             ; ;; The heap will be a linked list of free blocks - unlike the Comodo version which stores both 
+00000064:             ; newline
+00000064: E3A0000A    ;     ldr R0, =nlchar
+00000068: EF000000    ;     swi 0
+0000006C:             ; 
+0000006C: E1A0F00E    ;     mov R15, R14
+00000070:             ; 
+00000070:             ; getstring
+00000070:             ; ;;INP in R0 the terminator character
+00000070:             ; ;;INP in R1 the max number of characters or -1 for no max
+00000070:             ; ;;RET in R0 a ptr to the memory address
+00000070:             ; ;;
+00000070:             ; ;;Dynamically allocate memory to support large string
+00000070:             ; 
+00000070:             ; ;;buff = malloc(minBytes)
+00000070:             ; ;;while (input != terminator) 
+00000070:             ; ;;  buff[pos] = input
+00000070:             ; ;;  if (pos > buffSize)
+00000070:             ; ;;      nBuff = malloc(buffSize << 1)
+00000070:             ; ;;      memcpy from buff to nBuff
+00000070:             ; ;;      free buff
+00000070:             ; 
+00000070:             ; setupOptions
+00000070: E28F0F77    ;     adrl R0, askdefaults ;;ask q
+00000074: EF000003    ;     swi 3
+00000078: EF000001    ;     swi 1   ;;get character answer
+0000007C: EF000000    ;     swi 0
+00000080: E3500059    ;     cmp R0, #'Y'
+00000084: E3A0000A    ;     ldr R0, =nlchar
+00000088: EF000000    ;     swi 0
+0000008C:             ; 
+0000008C: 1A000000    ;     bne setupCustom
+00000090:             ; 
+00000090: E1A0F00E    ;     mov R15, R14 ;;RET
+00000094:             ; 
+00000094:             ; setupCustom
+00000094:             ; ;;ask for erase, slow, dims
+00000094: E3A01001    ;     mov R1, #1
+00000098:             ; 
+00000098: E28F00E6    ;     adrl R0, askerase
+0000009C: E2800C01    ; 
+000000A0: EF000003    ;     swi 3
+000000A4: EF000001    ;     swi 1
+000000A8: EF000000    ;     swi 0
+000000AC: E3500059    ;     cmp R0, #'Y'
+000000B0: E3A0000A    ;     ldr R0, =nlchar
+000000B4: EF000000    ;     swi 0
+000000B8: 05CF1238    ;     streqb R1, erase_b
+000000BC:             ;  
+000000BC: E28F00DB    ;     adrl R0, askslow
+000000C0: E2800C01    ; 
+000000C4: EF000003    ;     swi 3
+000000C8: EF000001    ;     swi 1
+000000CC: EF000000    ;     swi 0 
+000000D0: E3500059    ;     cmp R0, #'Y' 
+000000D4: E3A0000A    ;     ldr R0, =nlchar
+000000D8: EF000000    ;     swi 0
+000000DC: 05CF1215    ;     streqb R1, slow_b
+000000E0:             ; 
+000000E0: E1A0F00E    ;     mov R15, R14 ;;RET
+000000E4:             ; 
+000000E4:             ; ;; The heap will be a linked list of free blocks - unlike the Comodo version which stores both 
                       ; free & taken blocks 
-000000AC:             ; ;; This is an idea I'm stealing from the C programming book
-000000AC:             ; ;; Crate structure
-000000AC:             ; ;;  |-ptr to next crate (1 word)
-000000AC:             ; ;;  |-ptr to prev crate (1 word)
-000000AC:             ; ;;  `-Size (bytes)      (1 word)
-000000AC:             ; ;; 
-000000AC:             ; setupHeap
-000000AC:             ; ;;NO INP
-000000AC:             ; ;;NO OUT
-000000AC:             ;     ;;we have the heapstart
-000000AC:             ;     ;;the end of the heap will be 0x100000 (it will overlap with the stack :) )
-000000AC: E59F0148    ;     ldr R0, heaphead ;;stores the mem addr of the start of the heap
-000000B0: E3A01601    ;     ldr R1, =max_addr ;;stores the end of the heap
-000000B4:             ; 
-000000B4: E0411000    ;     sub R1, R1, R0  ;;HEAPEND - HEAPSTART = TOTAL STORAGE (bytes)
-000000B8: E241100C    ;     sub R1, R1, #12 ;;SIZE -= SIZEOF(CRATE) (12 bytes)
-000000BC: E5801008    ;     str R1, [R0, #8] ;;set the size of the crate
-000000C0: E3A01000    ;     mov R1, #0
-000000C4: E5801004    ;     str R1, [R0, #4] ;;set the prev ptr
-000000C8: E5801000    ;     str R1, [R0, #0] ;;set the next ptr
-000000CC:             ; 
-000000CC: E1A0F00E    ;     mov r15, r14
-000000D0:             ; 
-000000D0:             ; ;; The heap is a linked list of free Crates and so find the header and then go though until one
+000000E4:             ; ;; This is an idea I'm stealing from the C programming book
+000000E4:             ; ;; Crate structure
+000000E4:             ; ;;  |-ptr to next crate (1 word)
+000000E4:             ; ;;  |-ptr to prev crate (1 word)
+000000E4:             ; ;;  `-Size (bytes)      (1 word)
+000000E4:             ; ;; 
+000000E4:             ; setupHeap
+000000E4:             ; ;;NO INP
+000000E4:             ; ;;NO OUT
+000000E4:             ;     ;;we have the heapstart
+000000E4:             ;     ;;the end of the heap will be 0x100000 (it will overlap with the stack :) )
+000000E4: E59F0208    ;     ldr R0, heaphead ;;stores the mem addr of the start of the heap
+000000E8: E3A01601    ;     ldr R1, =max_addr ;;stores the end of the heap
+000000EC:             ; 
+000000EC: E0411000    ;     sub R1, R1, R0  ;;HEAPEND - HEAPSTART = TOTAL STORAGE (bytes)
+000000F0: E241100C    ;     sub R1, R1, #12 ;;SIZE -= SIZEOF(CRATE) (12 bytes)
+000000F4: E5801008    ;     str R1, [R0, #8] ;;set the size of the crate
+000000F8: E3A01000    ;     mov R1, #0
+000000FC: E5801004    ;     str R1, [R0, #4] ;;set the prev ptr
+00000100: E5801000    ;     str R1, [R0, #0] ;;set the next ptr
+00000104:             ; 
+00000104: E1A0F00E    ;     mov r15, r14
+00000108:             ; 
+00000108:             ; ;; The heap is a linked list of free Crates and so find the header and then go though until one
                       ;  satifies the size requirement
-000000D0:             ; ;;  end if next is 0
-000000D0:             ; ;;  once found either take over the crate or split it into two new crates
-000000D0:             ; ;;  align the bytes amount to 8 byte boundry
-000000D0:             ; malloc
-000000D0:             ; ;;INP into R0 bytes to allocate
-000000D0:             ; ;;OUT into R0 the ptr to the memory or 0 for no memory allocated
-000000D0:             ;     ;;step 1 align the bytes
-000000D0:             ;     ;;1001010 & 0111 = 0000010 ;2
-000000D0:             ;     ;;if 0 goto alignend
-000000D0:             ;     ;;1001010 + (8 - 2)
-000000D0: E2001007    ;     and R1, R0, #0b0111
-000000D4: E3510000    ;     cmp R1, #0
-000000D8: 0B000002    ;     bleq mallignend
-000000DC: E3A03008    ;     mov R3, #0b1000
-000000E0: E0432001    ;     sub R2, R3, R1
-000000E4: E0800002    ;     add R0, R0, R2
-000000E8:             ; 
-000000E8:             ; mallignend
-000000E8: E59F110C    ;     ldr R1, heaphead ;;stores a ptr to the first block
-000000EC:             ;     
-000000EC:             ; checkcrate
-000000EC: E5912008    ;     ldr R2, [R1, #8] ;;Size of the crate
-000000F0: E1500002    ;     cmp R0, R2 ;;bytes needed - bytes in crate
-000000F4: DA000006    ;     ble foundcrate
-000000F8: E5912000    ;     ldr R2, [R1, #0] ;;get the next ptr
-000000FC: E3520000    ;     cmp R2, #0
-00000100: 0A000001    ;     beq nocrates
-00000104: E1A01002    ;     mov R1, R2 ;;swap the current crate with the next crate
-00000108: EAFFFFF7    ;     b checkcrate
-0000010C:             ; nocrates
-0000010C: E3A00000    ;     mov R0, #0
-00000110: E1A0F00E    ;     mov R15, R14 ;;RET
-00000114:             ; 
-00000114:             ; foundcrate
-00000114:             ;     ;;Once a crate that we can use has been found we need to either split the crate or use the 
+00000108:             ; ;;  end if next is 0
+00000108:             ; ;;  once found either take over the crate or split it into two new crates
+00000108:             ; ;;  align the bytes amount to 8 byte boundry
+00000108:             ; malloc
+00000108:             ; ;;INP into R0 bytes to allocate
+00000108:             ; ;;OUT into R0 the ptr to the memory or 0 for no memory allocated
+00000108:             ;     ;;step 1 align the bytes
+00000108:             ;     ;;1001010 & 0111 = 0000010 ;2
+00000108:             ;     ;;if 0 goto alignend
+00000108:             ;     ;;1001010 + (8 - 2)
+00000108: E2001007    ;     and R1, R0, #0b0111
+0000010C: E3510000    ;     cmp R1, #0
+00000110: 0B000002    ;     bleq mallignend
+00000114: E3A03008    ;     mov R3, #0b1000
+00000118: E0432001    ;     sub R2, R3, R1
+0000011C: E0800002    ;     add R0, R0, R2
+00000120:             ; 
+00000120:             ; mallignend
+00000120: E59F11CC    ;     ldr R1, heaphead ;;stores a ptr to the first block
+00000124:             ;     
+00000124:             ; checkcrate
+00000124: E5912008    ;     ldr R2, [R1, #8] ;;Size of the crate
+00000128: E1500002    ;     cmp R0, R2 ;;bytes needed - bytes in crate
+0000012C: DA000006    ;     ble foundcrate
+00000130: E5912000    ;     ldr R2, [R1, #0] ;;get the next ptr
+00000134: E3520000    ;     cmp R2, #0
+00000138: 0A000001    ;     beq nocrates
+0000013C: E1A01002    ;     mov R1, R2 ;;swap the current crate with the next crate
+00000140: EAFFFFF7    ;     b checkcrate
+00000144:             ; nocrates
+00000144: E3A00000    ;     mov R0, #0
+00000148: E1A0F00E    ;     mov R15, R14 ;;RET
+0000014C:             ; 
+0000014C:             ; foundcrate
+0000014C:             ;     ;;Once a crate that we can use has been found we need to either split the crate or use the 
                       ; crate
-00000114:             ;     ;;We should use the whole crate only when its size < bytesneeded + CrateHeader + 8
-00000114:             ;     ;;This would give the edge case crate 8 bytes
-00000114:             ;     
-00000114:             ;     ;;R1 holds the found crate ptr
-00000114:             ;     ;;R0 is the bytes requested and aligned
-00000114: E2802014    ;     add R2, R0, #20 ;;A crate header is 12 bytes + the extra 8 bytes minimum
-00000118: E5913008    ;     ldr R3, [R1, #8]
-0000011C: E1530002    ;     cmp R3, R2
-00000120: BA000007    ;     blt usecrate
-00000124:             ; splitcrate
-00000124:             ;     ;;In this case we have a large crate that should be split up.
-00000124:             ;     ;;Change the current crates size and give the mem addr for the end of the crates block?
-00000124: E5912008    ;     ldr R2, [R1, #8] ;;get size
-00000128: E0422000    ;     sub R2, R2, R0
-0000012C: E5812008    ;     str R2, [R1, #8] ;;store back size - bytesRequested
-00000130: E1A00001    ;     mov R0, R1
-00000134: E280000C    ;     add R0, R0, #12         ;; address of crate + sizeof(Crate) + size
-00000138: E5913008    ;     ldr R3, [R1, #8]        ;;
-0000013C: E0800003    ;     add R0, R0, R3          ;;
-00000140:             ; 
-00000140: E1A0F00E    ;     mov R15, R14 ;;RET
-00000144:             ; 
-00000144:             ; usecrate
-00000144:             ;     ;; Simplest option as we can just remove it from the list
-00000144:             ;     ;; c1 <-> c2 <-> c3 ==> c1 <-> c3
-00000144: E5912000    ;     ldr R2, [R1, #0] ;;next ptr
-00000148: E5913004    ;     ldr R3, [R1, #4] ;;prev ptr
-0000014C: E5823004    ;     str R3, [R2, #4] ;;Store c1 into c3's previous
-00000150: E5832000    ;     str R2, [R3, #0] ;;Store c3 into c1's next
-00000154:             ; 
-00000154: E1A00001    ;     mov R0, R1 ;;move the found crate's address into the return register ;;The crate header is 
+0000014C:             ;     ;;We should use the whole crate only when its size < bytesneeded + CrateHeader + 8
+0000014C:             ;     ;;This would give the edge case crate 8 bytes
+0000014C:             ;     
+0000014C:             ;     ;;R1 holds the found crate ptr
+0000014C:             ;     ;;R0 is the bytes requested and aligned
+0000014C: E2802014    ;     add R2, R0, #20 ;;A crate header is 12 bytes + the extra 8 bytes minimum
+00000150: E5913008    ;     ldr R3, [R1, #8]
+00000154: E1530002    ;     cmp R3, R2
+00000158: BA00000B    ;     blt usecrate
+0000015C:             ; splitcrate
+0000015C:             ;     ;;In this case we have a large crate that should be split up.
+0000015C:             ;     ;;Change the current crates size and give the mem addr for the end of the crates block?
+0000015C: E5913008    ;     ldr R3, [R1, #8] ;;The size of the toSplit Crate
+00000160: E0433000    ;     sub R3, R3, R0 ;; size - bytesRequested
+00000164: E243300C    ;     sub R3, R3, #12 ;; size - bytesRequested - sizeof(Crate)
+00000168: E5813008    ;     str R3, [R1, #8] ;;toSplit->size = newSize
+0000016C:             ; 
+0000016C: E0833001    ;     add R3, R3, R1 ;; newSize + toSplit.addr
+00000170: E283300C    ;     add R3, R3, #12 ;; newSize + toSplit.addr + sizeof(Crate) = position of new Crate
+00000174:             ; 
+00000174:             ;     ;;Setup the header for the newCrate
+00000174: E3A02000    ;     mov R2, #0
+00000178: E5832000    ;     str R2, [R3, #0] ;;next = 0
+0000017C: E5832004    ;     str R2, [R3, #4] ;;prev = 0
+00000180: E5830008    ;     str R0, [R3, #8] ;;size = requested and aligned
+00000184:             ; 
+00000184:             ;     ;;MAYBE: can the crates that are taken have a smaller header than those that are free. Take
+                      ; n crates need not store the next, prev free nodes
+00000184:             ;     ;;This may complicate things as size would need to be moved around and the size from taken 
+                      ; to free would be different. 
+00000184:             ; 
+00000184: E1A00003    ;     mov R0, R3
+00000188:             ; 
+00000188: E1A0F00E    ;     mov R15, R14 ;;RET
+0000018C:             ; 
+0000018C:             ; usecrate
+0000018C:             ;     ;; Simplest option as we can just remove it from the list
+0000018C:             ;     ;; c1 <-> c2 <-> c3 ==> c1 <-> c3
+0000018C: E5912000    ;     ldr R2, [R1, #0] ;;next ptr
+00000190: E5913004    ;     ldr R3, [R1, #4] ;;prev ptr
+00000194: E5823004    ;     str R3, [R2, #4] ;;Store c1 into c3's previous
+00000198: E5832000    ;     str R2, [R3, #0] ;;Store c3 into c1's next
+0000019C:             ; 
+0000019C: E1A00001    ;     mov R0, R1 ;;move the found crate's address into the return register ;;The crate header is 
                       ; no longer needed
-00000158: E1A0F00E    ;     mov R15, r14 ;;RET
-0000015C:             ; 
-0000015C:             ; 
-0000015C:             ; ;;String defs
-0000015C: 57 6F 75 6C ; askdefaults defb "Would you like to use the default settings? Y/n: ", 0
-00000160: 64 20 79 6F ; 
-00000164: 75 20 6C 69 ; 
-00000168: 6B 65 20 74 ; 
-0000016C: 6F 20 75 73 ; 
-00000170: 65 20 74 68 ; 
-00000174: 65 20 64 65 ; 
-00000178: 66 61 75 6C ; 
-0000017C: 74 20 73 65 ; 
-00000180: 74 74 69 6E ; 
-00000184: 67 73 3F 20 ; 
-00000188: 59 2F 6E 3A ; 
-0000018C: 20 00       ; 
-0000018E: 45 6E 61 62 ; askerase    defb "Enable erase mode? Y/n: ", 0
-00000192: 6C 65 20 65 ; 
-00000196: 72 61 73 65 ; 
-0000019A: 20 6D 6F 64 ; 
-0000019E: 65 3F 20 59 ; 
-000001A2: 2F 6E 3A 20 ; 
-000001A6: 00          ; 
-000001A7: 45 6E 61 62 ; askslow     defb "Enable slow mode? Y/n: ", 0
-000001AB: 6C 65 20 73 ; 
-000001AF: 6C 6F 77 20 ; 
-000001B3: 6D 6F 64 65 ; 
-000001B7: 3F 20 59 2F ; 
-000001BB: 6E 3A 20 00 ; 
-000001BF: 50 6C 65 61 ; askwid      defb "Please enter a width (1-30): ", 0
-000001C3: 73 65 20 65 ; 
-000001C7: 6E 74 65 72 ; 
-000001CB: 20 61 20 77 ; 
-000001CF: 69 64 74 68 ; 
-000001D3: 20 28 31 2D ; 
-000001D7: 33 30 29 3A ; 
-000001DB: 20 00       ; 
-000001DD: 50 6C 65 61 ; askhei      defb "Please enter a height (1-30): ", 0
-000001E1: 73 65 20 65 ; 
-000001E5: 6E 74 65 72 ; 
-000001E9: 20 61 20 68 ; 
-000001ED: 65 69 67 68 ; 
-000001F1: 74 20 28 31 ; 
-000001F5: 2D 33 30 29 ; 
-000001F9: 3A 20 00    ; 
-000001FC:             ; 
-000001FC:             ; align
-000001FC:             ; ;;Integer defs
-000001FC: 00010000    ; heaphead defw 0x10000 ;;default start
-00000200:             ; 
-00000200:             ; ;;options
-00000200: 00          ; erase_b defb 0
-00000201: 00          ; slow_b  defb 0
-00000202: 12          ; width   defb 18
-00000203: 12          ; height  defb 18
+000001A0: E1A0F00E    ;     mov R15, r14 ;;RET
+000001A4:             ; 
+000001A4:             ; 
+000001A4:             ; free
+000001A4:             ; ;;INP in R0 is the mem addr of the data to be freed
+000001A4:             ; ;;OUT in R0 is the success code - 0 for mem freed, ¬0 for error ;;probably won't be currently 
+                      ; used `=(- -)=' 
+000001A4:             ;     ;;In order to free memory we need to add it back to the linked list
+000001A4:             ;     ;;Following K&R's version the linked list will be ordered by address this will make finding
+                      ;  consecutive memory locations that should be combined easier
+000001A4:             ; 
+000001A4:             ;     ;;heapHead = first Crate
+000001A4:             ;     ;;current = heapHead
+000001A4:             ;     ;;while (toFree.addr > current.addr)
+000001A4:             ;     ;;  current = current.next
+000001A4:             ;     ;;
+000001A4:             ;     ;;//Add the toFree Crate inbetween the current and its previous i.e.  A<->B<->C, toFree = D
+                      ;  (addr < C, addr > B) ==> A<->B<->D<->C
+000001A4:             ;     ;;current->prev->next = toFree
+000001A4:             ;     ;;toFree->prev = current.prev
+000001A4:             ;     ;;current->prev = toFree
+000001A4:             ;     ;;toFree->next = current
+000001A4:             ; 
+000001A4:             ;     ;; Crate structure
+000001A4:             ;     ;;  |-ptr to next crate (1 word)
+000001A4:             ;     ;;  |-ptr to prev crate (1 word)
+000001A4:             ;     ;;  `-Size (bytes)      (1 word)
+000001A4:             ; 
+000001A4: E92D01F0    ;     push {R4-R8}
+000001A8:             ; 
+000001A8: E59F1144    ;     ldr R1, heaphead ;;R1 will hold the current
+000001AC:             ; freeloop
+000001AC: E1500001    ;     cmp R0, R1 ;;compare the address of the toFree to the address of current
+000001B0: DA000004    ;     ble freelend ;;toFree.addr <= current.addr
+000001B4: E5912000    ;     ldr R2, [R1, #0] ;;load the ptr to the next
+000001B8:             ; 
+000001B8: E3520000    ;     cmp R2, #0 ;;If we are at the end of the list then it should just be added to the end
+000001BC: EA000007    ;     b freeAddEnd
+000001C0:             ; 
+000001C0: E1A01002    ;     mov R1, R2 ;;current = current.next
+000001C4:             ; 
+000001C4: EAFFFFF8    ;     b freeloop
+000001C8:             ; freelend
+000001C8:             ;     ;;should have the addr of current in R1 this
+000001C8: E5913004    ;     ldr R3, [R1, #4] ;; R4 holds current->prev
+000001CC: E5830000    ;     str R0, [R3, #0] ;; current->prev->next = toFree
+000001D0: E5804004    ;     str R4, [R0, #4] ;; toFree->prev = current->prev
+000001D4: E5040000    ;     str R0, [R4]     ;; current->prev = toFree
+000001D8: E5801000    ;     str R1, [R0, #0] ;; toFree->next = current
+000001DC:             ; 
+000001DC: EA000001    ;     b freeMergeCheck
+000001E0:             ; 
+000001E0:             ; freeAddEnd
+000001E0:             ;     ;;Append to the end of the linked list, addr of the current is in R1
+000001E0: E5810000    ;     str R0, [R1, #0] ;;current.next = toFree
+000001E4: E5801004    ;     str R1, [R0, #4] ;;toFree.prev = current
+000001E8:             ; 
+000001E8:             ; freeMergeCheck
+000001E8:             ;     ;;Now need to check if the crate can be merged with either the prev or the next, or both!
+000001E8:             ;     ;; prev = (toFree, prev2, size) ;;prev is an address
+000001E8:             ;     ;; toFree = (next, prev, size) toFree is an address
+000001E8:             ;     ;; next = (next2, toFree, size) next is an address
+000001E8:             ; 
+000001E8:             ;     ;; We should merge toFree and prev when prev + prev.size + sizeof(Crate) = toFree
+000001E8:             ;     ;;  |toFree prev2 size||data of size size bytes||next prev size||data of size size bytes||n
+                      ; ext2 toFree size||data of size size bytes|
+000001E8:             ;     ;;  ^-prev             ^-prev + sizeof(Crate)   ^-prev + sizeof(Crate) + size bytes = toFre
+                      ; e
+000001E8:             ;     ;;  When this is met we can just change prev size to size += toFree->size + sizeof(Crate)
+000001E8:             ;     ;;  Also need to change the next ptr of prev i.e. prev.next = toFree.next
+000001E8:             ;     ;;  and toFree.next.prev = toFree.prev
+000001E8:             ; 
+000001E8:             ;     ;;In order to check both the left and the right crates we can find the left most and right 
+                      ; most crates that can be merged
+000001E8:             ;     ;;e.g. If prev can be merged then left = prev else left = current. If next can be merged th
+                      ; en right = next else right = current. If left == right then we don't need to merge else merge
+000001E8:             ; 
+000001E8:             ;     ;;STEP 1
+000001E8:             ;     ;;Find left and right crates
+000001E8:             ;     ;;R0 is toFree
+000001E8:             ;     ;;R1 is current (crate with a higher addr)
+000001E8:             ; 
+000001E8: E5902004    ;     ldr R2, [R0, #4] ;;toFree->prev
+000001EC: E5903008    ;     ldr R3, [R0, #8] ;;toFree->size
+000001F0: E0822003    ;     add R2, R2, R3   ;;add address of prev to size of prev
+000001F4: E282200C    ;     add R2, R2, #12  ;;add size of a Crate
+000001F8:             ; 
+000001F8: E1520000    ;     cmp R2, R0
+000001FC: 01A04002    ;     moveq R4, R2
+00000200: 11A04000    ;     movne R4, R0
 00000204:             ; 
-00000204:             ; align
-00000204:             ; heapstart ;;points to the end of the data this is where the heap can then begin
-00000204:             ; 
-00000204:             ; Remaining literals
+00000204:             ;     ;;toFree.addr + toFree.size + sizeof(Crate) == toFree.next Then right = toFree->next else r
+                      ; ight = toFree
+00000204: E5902000    ;     ldr R2, [R0, #0] ;;toFree->next
+00000208: E5903008    ;     ldr R3, [R0, #8] ;;toFree->size
+0000020C: E0833000    ;     add R3, R3, R0   ;;toFree.addr + toFree.size
+00000210: E283300C    ;     add R3, R3, #12  ;;add sizeof(Crate)
+00000214:             ; 
+00000214: E1530002    ;     cmp R3, R2 ;;does that == toFree->next
+00000218: 01A05002    ;     moveq R5, R2
+0000021C: 11A05000    ;     movne R5, R0
+00000220:             ;     
+00000220:             ;     ;;R4 contains the left crate
+00000220:             ;     ;;R5 contains the right crate
+00000220:             ; 
+00000220: E1540005    ;     cmp R4, R5 ;;if equal then don't merge the crates
+00000224: 0A000008    ;     beq freeEnd
+00000228:             ; 
+00000228:             ; 
+00000228:             ; mergeCrates
+00000228:             ; ;;PSEUDOFUNC
+00000228:             ; ;;INP in R4 is the address of the left crate to merge
+00000228:             ; ;;INP in R5 is the address of the right crate to merge
+00000228: E5952008    ;     ldr R2, [R5, #8] ;;right->size in R2
+0000022C: E3A0300C    ;     mov R3, #12      ;;sizeof(Crate) = 12 bytes
+00000230: E0822003    ;     add R2, R2, R3
+00000234: E5842008    ;     str R2, [R4, #8] ;;left->size = R2 (right->size + sizeof(Crate))
+00000238:             ; 
+00000238:             ;     ;;left->next = right->next
+00000238:             ;     ;;if (left->next != 0)
+00000238:             ;     ;;  left->next->prev = left
+00000238:             ; 
+00000238: E5953000    ;     ldr R3, [R5, #0] ;;right->next
+0000023C: E5843000    ;     str R3, [R4, #0] ;;left->next = right->next
+00000240: E3530000    ;     cmp R3, #0
+00000244: 0A000000    ;     beq freeEnd
+00000248: E5834004    ;     str R4, [R3, #4] ;;left->next->prev = left
+0000024C:             ; 
+0000024C:             ; freeEnd
+0000024C: E8BD01F0    ;     pop {R4-R8}
+00000250: E1A0F00E    ;     mov R15, R14
+00000254:             ; 
+00000254:             ; ;;String defs
+00000254: 57 6F 75 6C ; askdefaults defb "Would you like to use the default settings? Y/n: ", 0
+00000258: 64 20 79 6F ; 
+0000025C: 75 20 6C 69 ; 
+00000260: 6B 65 20 74 ; 
+00000264: 6F 20 75 73 ; 
+00000268: 65 20 74 68 ; 
+0000026C: 65 20 64 65 ; 
+00000270: 66 61 75 6C ; 
+00000274: 74 20 73 65 ; 
+00000278: 74 74 69 6E ; 
+0000027C: 67 73 3F 20 ; 
+00000280: 59 2F 6E 3A ; 
+00000284: 20 00       ; 
+00000286: 45 6E 61 62 ; askerase    defb "Enable erase mode? Y/n: ", 0
+0000028A: 6C 65 20 65 ; 
+0000028E: 72 61 73 65 ; 
+00000292: 20 6D 6F 64 ; 
+00000296: 65 3F 20 59 ; 
+0000029A: 2F 6E 3A 20 ; 
+0000029E: 00          ; 
+0000029F: 45 6E 61 62 ; askslow     defb "Enable slow mode? Y/n: ", 0
+000002A3: 6C 65 20 73 ; 
+000002A7: 6C 6F 77 20 ; 
+000002AB: 6D 6F 64 65 ; 
+000002AF: 3F 20 59 2F ; 
+000002B3: 6E 3A 20 00 ; 
+000002B7: 50 6C 65 61 ; askwid      defb "Please enter a width (1-30): ", 0
+000002BB: 73 65 20 65 ; 
+000002BF: 6E 74 65 72 ; 
+000002C3: 20 61 20 77 ; 
+000002C7: 69 64 74 68 ; 
+000002CB: 20 28 31 2D ; 
+000002CF: 33 30 29 3A ; 
+000002D3: 20 00       ; 
+000002D5: 50 6C 65 61 ; askhei      defb "Please enter a height (1-30): ", 0
+000002D9: 73 65 20 65 ; 
+000002DD: 6E 74 65 72 ; 
+000002E1: 20 61 20 68 ; 
+000002E5: 65 69 67 68 ; 
+000002E9: 74 20 28 31 ; 
+000002ED: 2D 33 30 29 ; 
+000002F1: 3A 20 00    ; 
+000002F4:             ; 
+000002F4:             ; align
+000002F4:             ; ;;Integer defs
+000002F4: 00010000    ; heaphead defw 0x10000 ;;default start
+000002F8:             ; 
+000002F8:             ; ;;options
+000002F8: 00          ; erase_b defb 0
+000002F9: 00          ; slow_b  defb 0
+000002FA: 12          ; width   defb 18
+000002FB: 12          ; height  defb 18
+000002FC:             ; 
+000002FC:             ; align
+000002FC:             ; heapstart ;;points to the end of the data this is where the heap can then begin
+000002FC:             ; 
+000002FC:             ; Remaining literals
 
 Symbol Table: Labels
 : max_addr                          00100000  Value
 : nlchar                            0000000A  Value
 : _start                            00000000  Local -- ARM
 : main                              0000002C  Local -- ARM
-: newline                           00000030  Local -- ARM
-: getstring                         0000003C  Local -- ARM
-: setupOptions                      0000003C  Local -- ARM
-: setupCustom                       00000060  Local -- ARM
-: setupHeap                         000000AC  Local -- ARM
-: malloc                            000000D0  Local -- ARM
-: mallignend                        000000E8  Local -- ARM
-: checkcrate                        000000EC  Local -- ARM
-: nocrates                          0000010C  Local -- ARM
-: foundcrate                        00000114  Local -- ARM
-: splitcrate                        00000124  Local -- ARM
-: usecrate                          00000144  Local -- ARM
-: askdefaults                       0000015C  Local -- ARM
-: askerase                          0000018E  Local -- ARM
-: askslow                           000001A7  Local -- ARM
-: askwid                            000001BF  Local -- ARM
-: askhei                            000001DD  Local -- ARM
-: heaphead                          000001FC  Local -- ARM
-: erase_b                           00000200  Local -- ARM
-: slow_b                            00000201  Local -- ARM
-: width                             00000202  Local -- ARM
-: height                            00000203  Local -- ARM
-: heapstart                         00000204  Local -- ARM
+: newline                           00000064  Local -- ARM
+: getstring                         00000070  Local -- ARM
+: setupOptions                      00000070  Local -- ARM
+: setupCustom                       00000094  Local -- ARM
+: setupHeap                         000000E4  Local -- ARM
+: malloc                            00000108  Local -- ARM
+: mallignend                        00000120  Local -- ARM
+: checkcrate                        00000124  Local -- ARM
+: nocrates                          00000144  Local -- ARM
+: foundcrate                        0000014C  Local -- ARM
+: splitcrate                        0000015C  Local -- ARM
+: usecrate                          0000018C  Local -- ARM
+: free                              000001A4  Local -- ARM
+: freeloop                          000001AC  Local -- ARM
+: freelend                          000001C8  Local -- ARM
+: freeAddEnd                        000001E0  Local -- ARM
+: freeMergeCheck                    000001E8  Local -- ARM
+: mergeCrates                       00000228  Local -- ARM
+: freeEnd                           0000024C  Local -- ARM
+: askdefaults                       00000254  Local -- ARM
+: askerase                          00000286  Local -- ARM
+: askslow                           0000029F  Local -- ARM
+: askwid                            000002B7  Local -- ARM
+: askhei                            000002D5  Local -- ARM
+: heaphead                          000002F4  Local -- ARM
+: erase_b                           000002F8  Local -- ARM
+: slow_b                            000002F9  Local -- ARM
+: width                             000002FA  Local -- ARM
+: height                            000002FB  Local -- ARM
+: heapstart                         000002FC  Local -- ARM
