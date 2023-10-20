@@ -13,12 +13,14 @@
 ;;  - Ask the user
 ;;      |-Use default? Y - skip below
 ;;      |-dims of the grid
+;;      |   `-Will need a way to get a string input and convert to an integer (make sure to catch -ve)
 ;;      |-slow mode
 ;;      `-erase mode
 ;;  - ask for generation mode
 ;;      |-If random ask for seed
-;;      `-If draw then get them to draw the grid
-;;  - Allocate two grids, the pointers to which will swap after a frame
+;;      |   `-For generation roll the seed to create a pseudorandom value for each `pixel`
+;;      `-If draw then get them to draw the grid one `pixel` at a time
+;;  - Allocate two grids, the pointers to which will swap after a frame. One is used to count the neighbours the other for the new cell value.
 ;;  - loop
 ;;      |-count neighbours
 ;;      |-update inactive grid
@@ -26,16 +28,25 @@
 ;;      |-draw active grid
 ;;      `-goto loop
 
-max_addr EQU 0x100000
-nlchar EQU 10
+
+;;  CURRENT ISSUES/TODOS
+;;      |-Free is looping crates, making them point at themselves
+;;      |-Have not tested getstring due to ^, prob doesn't word
+;;      `-haven't tested memcpy             --^
+
+max_addr    EQU  0x100000
+stack_size  EQU  0x10000
+nlchar      EQU  10
+minBuffSize EQU  8
 
 _start
     ;;prepare the stack
-    ldr R13, =max_addr 
-    ;;setup heap
+    ldr R13, =max_addr
+    mov R14, #0 ;; allow for `returning` from _start
     push {R14}
 
-    adr R0, heapstart
+    ;;setup heap
+    adrl R0, heapstart
     str R0, heaphead
     bl setupHeap
 
@@ -46,7 +57,7 @@ _start
 
     pop {R14}
     swi 2
-    mov r15, #0
+    mov R15, R14
 
 main
     push {R14, R4-R8}
@@ -65,8 +76,14 @@ main
     mov R0, #100
     bl malloc
 
-
     bl free
+
+    mov R0, #0
+    mov R1, #-1
+    mov R2, #1
+    bl getstring
+
+    swi 3
 
     pop {R14, R4-R8}
     mov R15, R14
@@ -77,9 +94,83 @@ newline
 
     mov R15, R14
 
+memcpy
+;;INP in R0 is the addr of src
+;;INP in R1 is the addr of dst
+;;INP in R2 is the number of bytes to copy
+
+;;check if src and dst are alliged
+;;If different then write bytes
+;;If same then go to 4byte boundry
+;;  Write words of bytes2copy / 4
+;;  Write remaining bytes
+    push {R14, R4-R8}
+
+    and R4, R0, #0b11
+    and R5, R1, #0b11
+
+    cmp R4, R5
+    bne memcpyallbytes
+
+    ;;If they are the same then cpy R4 bytes and then do words
+    sub R2, R2, R4;; bytes2cpy -= bytes we are about to write
+    mov R3, R4
+    bl memcpybytes
+
+    ;;Now find the number of words that can be written i.e. bytes2cpy / 4 (bytes2cpy >> 2)
+    mov R3, R2, lsr#2
+    mov R4, #0 ;;i
+memcpywordsloop
+    cmp R4, R3
+    beq memcpywordslend
+
+    ldr R6, [R0, R4]
+    str R6, [R1, R4]
+    
+    add R4, R4, #1
+
+    b memcpywordsloop
+    
+memcpywordslend
+;;Now copy the remaining bytes
+    and R2, R2, #0b11
+    mov R3, R2
+    bl memcpybytes
+    b memcpyend
+
+memcpyallbytes
+    mov R3, R2
+    bl memcpybytes
+    b memcpyend
+
+memcpybytes
+;;This is an internal function to memcpy and so doesn't follow the calling convention, it also assumes values are in place from memcpy
+;;for (int i = 0; i < byte2cpy; i++) {
+;;      *(dst + i) = *(src + i)
+;;INP in R3 is the number of bytes to copy
+    mov R5, #0 ;;i
+memcpybytesloop
+    cmp R5, R3
+    beq memcpybyteslend ;;i < bytes2cpy
+
+    ldrb R4, [R0, R5]
+    strb R4, [R1, R5] ;;dst[i] = src[i]
+
+    add R5, R5, #1 ;;i++
+
+    b memcpybytesloop
+
+memcpybyteslend
+    mov R15, R14
+
+memcpyend
+    pop {R14, R4-R8}
+    mov R15, R14
+
 getstring
 ;;INP in R0 the terminator character
 ;;INP in R1 the max number of characters or -1 for no max
+;;INP in R2 boolean (non-0/0) for if letters should be printed out as well
 ;;RET in R0 a ptr to the memory address
 ;;
 ;;Dynamically allocate memory to support large string
@@ -91,6 +182,56 @@ getstring
 ;;      nBuff = malloc(buffSize << 1)
 ;;      memcpy from buff to nBuff
 ;;      free buff
+;;      buff = nBuff
+
+    push {R14, R4-R10}
+
+    mov R8, R0 ;;now holds terminator
+    mov R9, R1 ;;nax chars
+    mov R10, R2 ;;print bool
+
+    ldr R3, =minBuffSize ;;R3 will hold the current size of the buffer
+    mov R0, R3
+    bl malloc
+    mov R4, R0 ;;R4 is the address of the buffer
+
+    mov R5, #0 ;;R5 is the loop counter/index into buffer
+getstringloop
+    swi 1 ;;get input
+    cmp R0, R8 ;;is input == terminator character
+    beq getstringlend
+
+    str R0, [R4, R5] ;;buff[pos] = input
+
+    cmp R5, R3
+    bgt getstringresize
+
+    b getstringloop
+
+getstringresize
+    ;;r6 will hold new buffer
+    mov R0, R3, lsl #1
+    bl malloc
+    mov R6, R0
+
+    mov R0, R4 ;;old buff
+    mov R1, R6 ;;newBuff
+    mov R2, R5 ;;bytes to write
+    bl memcpy
+
+    mov R0, R4
+    bl free
+    mov R4, R6
+
+    b getstringloop
+
+getstringlend
+
+getstringEnd
+    mov R0, R4
+
+    pop {R14, R4-R9}
+    mov R15, R14
 
 setupOptions
     adrl R0, askdefaults ;;ask q
@@ -136,6 +277,12 @@ setupCustom
 ;;  |-ptr to prev crate (1 word)
 ;;  `-Size (bytes)      (1 word)
 ;; 
+
+;;  Traversal of the heap
+;;  Unlink in my Comodo implimentation the heap is not a linked list of all Crates (free or not)
+;;  That made traversing the heap for debugging purposes very easy, in this case taken crates do not point to the next
+;;  Instead could start at head and then just go to addr + sizeof(Crate) + size. This should take us to the next crate, free or not
+;;  
 setupHeap
 ;;NO INP
 ;;NO OUT
@@ -143,6 +290,8 @@ setupHeap
     ;;the end of the heap will be 0x100000 (it will overlap with the stack :) )
     ldr R0, heaphead ;;stores the mem addr of the start of the heap
     ldr R1, =max_addr ;;stores the end of the heap
+    ldr R2, =stack_size
+    sub R1, R1, R2
 
     sub R1, R1, R0  ;;HEAPEND - HEAPSTART = TOTAL STORAGE (bytes)
     sub R1, R1, #12 ;;SIZE -= SIZEOF(CRATE) (12 bytes)
@@ -151,7 +300,7 @@ setupHeap
     str R1, [R0, #4] ;;set the prev ptr
     str R1, [R0, #0] ;;set the next ptr
 
-    mov r15, r14
+    mov R15, R14
 
 ;; The heap is a linked list of free Crates and so find the header and then go though until one satifies the size requirement
 ;;  end if next is 0
@@ -164,6 +313,8 @@ malloc
     ;;1001010 & 0111 = 0000010 ;2
     ;;if 0 goto alignend
     ;;1001010 + (8 - 2)
+    push {R4}
+
     and R1, R0, #0b0111
     cmp R1, #0
     bleq mallignend
@@ -185,7 +336,7 @@ checkcrate
     b checkcrate
 nocrates
     mov R0, #0
-    mov R15, R14 ;;RET
+    b mallocEnd
 
 foundcrate
     ;;Once a crate that we can use has been found we need to either split the crate or use the crate
@@ -200,14 +351,15 @@ foundcrate
     blt usecrate
 splitcrate
     ;;In this case we have a large crate that should be split up.
-    ;;Change the current crates size and give the mem addr for the end of the crates block?
+    ;;ATM the crate will just be split up to where the requested memory is at the end of the free Crate.
+
     ldr R3, [R1, #8] ;;The size of the toSplit Crate
     sub R3, R3, R0 ;; size - bytesRequested
     sub R3, R3, #12 ;; size - bytesRequested - sizeof(Crate)
     str R3, [R1, #8] ;;toSplit->size = newSize
 
     add R3, R3, R1 ;; newSize + toSplit.addr
-    add R3, R3, #12 ;; newSize + toSplit.addr + sizeof(Crate) = position of new Crate
+    add R4, R3, #12 ;; newSize + toSplit.addr + sizeof(Crate) = position of new Crate
 
     ;;Setup the header for the newCrate
     mov R2, #0
@@ -218,9 +370,9 @@ splitcrate
     ;;MAYBE: can the crates that are taken have a smaller header than those that are free. Taken crates need not store the next, prev free nodes
     ;;This may complicate things as size would need to be moved around and the size from taken to free would be different. 
 
-    mov R0, R3
+    mov R0, R4
 
-    mov R15, R14 ;;RET
+    b mallocEnd
 
 usecrate
     ;; Simplest option as we can just remove it from the list
@@ -231,14 +383,18 @@ usecrate
     str R2, [R3, #0] ;;Store c3 into c1's next
 
     mov R0, R1 ;;move the found crate's address into the return register ;;The crate header is no longer needed
-    mov R15, r14 ;;RET
 
+mallocEnd
+    pop {R4}
+    mov R15, R14
 
 free
 ;;INP in R0 is the mem addr of the data to be freed
 ;;OUT in R0 is the success code - 0 for mem freed, ¬0 for error ;;probably won't be currently used `=(- -)=' 
     ;;In order to free memory we need to add it back to the linked list
     ;;Following K&R's version the linked list will be ordered by address this will make finding consecutive memory locations that should be combined easier
+
+    ;;The inputted address of the crate is the address given in malloc and so the start of the crate is that addr - sizeof(Crate) (#12)
 
     ;;heapHead = first Crate
     ;;current = heapHead
@@ -264,92 +420,96 @@ freeloop
     ble freelend ;;toFree.addr <= current.addr
     ldr R2, [R1, #0] ;;load the ptr to the next
 
-    cmp R2, #0 ;;If we are at the end of the list then it should just be added to the end
-    b freeAddEnd
+    cmp R2, #0 ;;If there are no more Crates to the right then this could be a new Crate at the end or |F|T| it should merge left 
+    beq freelend
 
     mov R1, R2 ;;current = current.next
 
     b freeloop
+
 freelend
-    ;;should have the addr of current in R1 this
-    ldr R3, [R1, #4] ;; R4 holds current->prev
-    str R0, [R3, #0] ;; current->prev->next = toFree
-    str R4, [R0, #4] ;; toFree->prev = current->prev
-    str R0, [R4]     ;; current->prev = toFree
-    str R1, [R0, #0] ;; toFree->next = current
+    ;; R1 holds the current (left)
+    ;; R2 holds the c->next (right)
+    ldr R2, [R1, #0]
+
+    ;;Setup the ptrs for the crates this will help later on   left<->toFree<->right ;;left,right can be 0
+    ldr R4, [R1, #4]    ;; R4 holds current->prev
+    cmp R4, #0
+    strne R0, [R4, #0]  ;; current->prev->next = toFree
+    str R4, [R0, #4]    ;; toFree->prev = current->prev
+    strne R0, [R4]      ;; current->prev = toFree
+    str R1, [R0, #0]    ;; toFree->next = current
 
     b freeMergeCheck
 
-freeAddEnd
-    ;;Append to the end of the linked list, addr of the current is in R1
-    str R0, [R1, #0] ;;current.next = toFree
-    str R1, [R0, #4] ;;toFree.prev = current
-
 freeMergeCheck
-    ;;Now need to check if the crate can be merged with either the prev or the next, or both!
-    ;; prev = (toFree, prev2, size) ;;prev is an address
-    ;; toFree = (next, prev, size) toFree is an address
-    ;; next = (next2, toFree, size) next is an address
+    ;;We have a ptr to current. This should be the closest Crate to the left of toFree
+    ;;We also have the next Crate (null or not) which is to the right of toFree
+    ;;Both of these crates MAY need to be merged but could also have taken crates in between
+    ;;First is to check if the crates are adjacent
+    ;;  If they are NOT then create a newCrate
+    ;;  If they are     then merge both
+    ;;  If only one     then merge either left or right
 
-    ;; We should merge toFree and prev when prev + prev.size + sizeof(Crate) = toFree
-    ;;  |toFree prev2 size||data of size size bytes||next prev size||data of size size bytes||next2 toFree size||data of size size bytes|
-    ;;  ^-prev             ^-prev + sizeof(Crate)   ^-prev + sizeof(Crate) + size bytes = toFree
-    ;;  When this is met we can just change prev size to size += toFree->size + sizeof(Crate)
-    ;;  Also need to change the next ptr of prev i.e. prev.next = toFree.next
-    ;;  and toFree.next.prev = toFree.prev
+    ;;R1 will be left
+    ;;R2 will be right
 
-    ;;In order to check both the left and the right crates we can find the left most and right most crates that can be merged
-    ;;e.g. If prev can be merged then left = prev else left = current. If next can be merged then right = next else right = current. If left == right then we don't need to merge else merge
+    cmp R1, #0
+    moveq R1, R0 ;;If there is no left crate then left=toFree
+    cmp R2, #0
+    moveq R2, R0 ;;If there is no right crate (more likely) then right=toFree
 
-    ;;STEP 1
-    ;;Find left and right crates
-    ;;R0 is toFree
-    ;;R1 is current (crate with a higher addr)
+verifyLeft
+    ;;Check if the left is adjacent
+    ;;It will be if (left.addr + sizeof(Crate) + left.size == toFree.addr)
 
-    ldr R2, [R0, #4] ;;toFree->prev
-    ldr R3, [R0, #8] ;;toFree->size
-    add R2, R2, R3   ;;add address of prev to size of prev
-    add R2, R2, #12  ;;add size of a Crate
+    ldr R3, [R1, #8]
+    add R3, R3, #12 ;;12 is sizeof(Crate) + left.size
+    add R3, R3, R1 ;; + left.addr
 
-    cmp R2, R0
-    moveq R4, R2
-    movne R4, R0
+    cmp R3, R0
+    movne R1, R0
 
-    ;;toFree.addr + toFree.size + sizeof(Crate) == toFree.next Then right = toFree->next else right = toFree
-    ldr R2, [R0, #0] ;;toFree->next
-    ldr R3, [R0, #8] ;;toFree->size
-    add R3, R3, R0   ;;toFree.addr + toFree.size
-    add R3, R3, #12  ;;add sizeof(Crate)
+verifyRight
+    ;;Same as left but with R2
+    ldr R3, [R2, #8]
+    add R3, R3, #12 ;;12 is sizeof(Crate) + left.size
+    add R3, R3, R2 ;; + left.addr
 
-    cmp R3, R2 ;;does that == toFree->next
-    moveq R5, R2
-    movne R5, R0
-    
-    ;;R4 contains the left crate
-    ;;R5 contains the right crate
+    cmp R3, R0
+    movne R2, R0
 
-    cmp R4, R5 ;;if equal then don't merge the crates
-    beq freeEnd
+merge
+    ;;Merge the two Crates given in R1 and R2
+    ;;left can be (left) or (toFree)
+    ;;right can be (right) or (toFree)
+    ;;If left == right: don't merge; create new Crate
+    ;;If left != right: then add to left's size
 
+    cmp R1, R2
+    beq mergeNew
 
-mergeCrates
-;;PSEUDOFUNC
-;;INP in R4 is the address of the left crate to merge
-;;INP in R5 is the address of the right crate to merge
-    ldr R2, [R5, #8] ;;right->size in R2
-    mov R3, #12      ;;sizeof(Crate) = 12 bytes
-    add R2, R2, R3
-    str R2, [R4, #8] ;;left->size = R2 (right->size + sizeof(Crate))
+    ;;find size of right
+    ldr R3, [R2, #8]
+    add R3, R3, #12 ;;R3 is the size to add to the left's size
+    ldr R4, [R1, #8] ;;left's current size
+    add R3, R3, R4
+    str R3, [R1, #8] ;;store back the new size
 
-    ;;left->next = right->next
-    ;;if (left->next != 0)
-    ;;  left->next->prev = left
+    ;;Time to switch some ptrs
+    ;;Current state left.prev<->left<->right<->right.next (with left or right = toFree) or left.prev<->left<->toFree<->right<->right.next
+    ;;New state would be left.prev<->left<->right.next (with left or right = toFree) or left.prev<->left<->right.next
+    ;;Both cases end the same, so get right.next. These could be 0 but it doesn't matter
+    ;;Next need to change the prev and next ptrs for adjacent Crates
+    ;;i.e. right->next->prev = left
 
-    ldr R3, [R5, #0] ;;right->next
-    str R3, [R4, #0] ;;left->next = right->next
-    cmp R3, #0
-    beq freeEnd
-    str R4, [R3, #4] ;;left->next->prev = left
+    ldr R4, [R2, #0] ;;right->next
+    str R4, [R1, #0] ;;left->next = right->next
+
+    str R1, [R4, #4] ;;right->next->prev = left
+
+mergeNew
+    ;;The crate has already been setup with its ptrs and had its size as well so don't need to do anything
 
 freeEnd
     pop {R4-R8}
