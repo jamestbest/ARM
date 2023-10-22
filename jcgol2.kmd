@@ -31,6 +31,12 @@ KMD
 00000000:             ; ;;      |-draw active grid
 00000000:             ; ;;      `-goto loop
 00000000:             ; 
+00000000:             ; 
+00000000:             ; ;;  CURRENT ISSUES/TODOS
+00000000:             ; ;;      |-Free is looping crates, making them point at themselves
+00000000:             ; ;;      |-Have not tested getstring due to ^, prob doesn't word
+00000000:             ; ;;      `-haven't tested memcpy             --^
+00000000:             ; 
 00000000:             ; max_addr    EQU  0x100000
 00000000:             ; stack_size  EQU  0x10000
 00000000:             ; nlchar      EQU  10
@@ -43,13 +49,13 @@ KMD
 00000008: E92D4000    ;     push {R14}
 0000000C:             ; 
 0000000C:             ;     ;;setup heap
-0000000C: E28F000C    ;     adrl R0, heapstart
+0000000C: E28F0044    ;     adrl R0, heapstart
 00000010: E2800B01    ; 
-00000014: E58F03FC    ;     str R0, heaphead
-00000018: EB000077    ;     bl setupHeap
+00000014: E58F0434    ;     str R0, heaphead
+00000018: EB00007E    ;     bl setupHeap
 0000001C:             ; 
 0000001C: E3A0000E    ;     mov R0, #14
-00000020: EB000080    ;     bl malloc
+00000020: EB000087    ;     bl malloc
 00000024:             ; 
 00000024: EB000002    ;     bl main
 00000028:             ; 
@@ -60,540 +66,582 @@ KMD
 00000034:             ; main
 00000034: E92D41F0    ;     push {R14, R4-R8}
 00000038:             ; 
-00000038: EB000052    ;     bl setupOptions
+00000038: EB000059    ;     bl setupOptions
 0000003C:             ; 
 0000003C: E3A0000C    ;     mov R0, #12
-00000040: EB000078    ;     bl malloc
+00000040: EB00007F    ;     bl malloc
 00000044:             ; 
 00000044: E3A0200E    ;     mov R2, #14
 00000048: E5002000    ;     str R2, [R0]
 0000004C: E3A0200F    ;     mov R2, #15
 00000050: E5802004    ;     str R2, [R0, #4]
 00000054:             ; 
-00000054: E1A04000    ;     mov R4, R0
-00000058: E3A00064    ;     mov R0, #100
-0000005C: EB000071    ;     bl malloc
-00000060:             ; 
-00000060:             ; 
-00000060: EB000099    ;     bl free
+00000054: E1A05000    ;     mov R5, R0 ;;save to free
+00000058:             ; 
+00000058: E1A04000    ;     mov R4, R0
+0000005C: E3A00064    ;     mov R0, #100
+00000060: EB000077    ;     bl malloc
 00000064:             ; 
-00000064: E3A00000    ;     mov R0, #0
-00000068: E3E01000    ;     mov R1, #-1
-0000006C: E3A02001    ;     mov R2, #1
-00000070: EB000026    ;     bl getstring
-00000074:             ; 
-00000074: EF000003    ;     swi 3
+00000064: E1A06000    ;     mov R6, R0
+00000068:             ; 
+00000068: E1A00005    ;     mov R0, R5
+0000006C: EB00009E    ;     bl free
+00000070:             ; 
+00000070: E3A0000C    ;     mov R0, #12
+00000074: EB000072    ;     bl malloc
 00000078:             ; 
-00000078: E8BD41F0    ;     pop {R14, R4-R8}
-0000007C: E1A0F00E    ;     mov R15, R14
+00000078: E1A00006    ;     mov R0, R6
+0000007C: EB00009A    ;     bl free
 00000080:             ; 
-00000080:             ; newline
-00000080: E3A0000A    ;     ldr R0, =nlchar
-00000084: EF000000    ;     swi 0
-00000088:             ; 
-00000088: E1A0F00E    ;     mov R15, R14
-0000008C:             ; 
-0000008C:             ; memcpy
-0000008C:             ; ;;INP in R0 is the addr of src
-0000008C:             ; ;;INP in R1 is the addr of dst
-0000008C:             ; ;;INP in R2 is the number of bytes to copy
-0000008C:             ; 
-0000008C:             ; ;;check if src and dst are alliged
-0000008C:             ; ;;If different then write bytes
-0000008C:             ; ;;If same then go to 4byte boundry
-0000008C:             ; ;;  Write words of bytes2copy / 4
-0000008C:             ; ;;  Write remaining bytes
-0000008C: E92D41F0    ;     push {R14, R4-R8}
+00000080: E3A00000    ;     mov R0, #0
+00000084: E3E01000    ;     mov R1, #-1
+00000088: E3A02001    ;     mov R2, #1
+0000008C: EB000026    ;     bl getstring
 00000090:             ; 
-00000090: E2004003    ;     and R4, R0, #0b11
-00000094: E2015003    ;     and R5, R1, #0b11
-00000098:             ; 
-00000098: E1540005    ;     cmp R4, R5
-0000009C: 1A00000E    ;     bne memcpyallbytes
-000000A0:             ; 
-000000A0:             ;     ;;If they are the same then cpy R4 bytes and then do words
-000000A0: E0422004    ;     sub R2, R2, R4;; bytes2cpy -= bytes we are about to write
-000000A4: E1A03004    ;     mov R3, R4
-000000A8: EB00000E    ;     bl memcpybytes
+00000090: EF000003    ;     swi 3
+00000094:             ; 
+00000094: E8BD41F0    ;     pop {R14, R4-R8}
+00000098: E1A0F00E    ;     mov R15, R14
+0000009C:             ; 
+0000009C:             ; newline
+0000009C: E3A0000A    ;     ldr R0, =nlchar
+000000A0: EF000000    ;     swi 0
+000000A4:             ; 
+000000A4: E1A0F00E    ;     mov R15, R14
+000000A8:             ; 
+000000A8:             ; memcpy
+000000A8:             ; ;;INP in R0 is the addr of src
+000000A8:             ; ;;INP in R1 is the addr of dst
+000000A8:             ; ;;INP in R2 is the number of bytes to copy
+000000A8:             ; 
+000000A8:             ; ;;check if src and dst are alliged
+000000A8:             ; ;;If different then write bytes
+000000A8:             ; ;;If same then go to 4byte boundry
+000000A8:             ; ;;  Write words of bytes2copy / 4
+000000A8:             ; ;;  Write remaining bytes
+000000A8: E92D41F0    ;     push {R14, R4-R8}
 000000AC:             ; 
-000000AC:             ;     ;;Now find the number of words that can be written i.e. bytes2cpy / 4 (bytes2cpy >> 2)
-000000AC: E1A03122    ;     mov R3, R2, lsr#2
-000000B0: E3A04000    ;     mov R4, #0 ;;i
-000000B4:             ; memcpywordsloop
-000000B4: E1540003    ;     cmp R4, R3
-000000B8: 0A000003    ;     beq memcpywordslend
+000000AC: E2004003    ;     and R4, R0, #0b11
+000000B0: E2015003    ;     and R5, R1, #0b11
+000000B4:             ; 
+000000B4: E1540005    ;     cmp R4, R5
+000000B8: 1A00000E    ;     bne memcpyallbytes
 000000BC:             ; 
-000000BC: E7906004    ;     ldr R6, [R0, R4]
-000000C0: E7816004    ;     str R6, [R1, R4]
-000000C4:             ;     
-000000C4: E2844001    ;     add R4, R4, #1
+000000BC:             ;     ;;If they are the same then cpy R4 bytes and then do words
+000000BC: E0422004    ;     sub R2, R2, R4;; bytes2cpy -= bytes we are about to write
+000000C0: E1A03004    ;     mov R3, R4
+000000C4: EB00000E    ;     bl memcpybytes
 000000C8:             ; 
-000000C8: EAFFFFF9    ;     b memcpywordsloop
-000000CC:             ;     
-000000CC:             ; memcpywordslend
-000000CC:             ; ;;Now copy the remaining bytes
-000000CC: E2022003    ;     and R2, R2, #0b11
-000000D0: E1A03002    ;     mov R3, R2
-000000D4: EB000003    ;     bl memcpybytes
-000000D8: EA00000A    ;     b memcpyend
-000000DC:             ; 
-000000DC:             ; memcpyallbytes
-000000DC: E1A03002    ;     mov R3, R2
-000000E0: EB000000    ;     bl memcpybytes
-000000E4: EA000007    ;     b memcpyend
-000000E8:             ; 
-000000E8:             ; memcpybytes
-000000E8:             ; ;;This is an internal function to memcpy and so doesn't follow the calling convention, it also 
-                      ; assumes values are in place from memcpy
-000000E8:             ; ;;for (int i = 0; i < byte2cpy; i++) {
-000000E8:             ; ;;      *(dst + i) = *(src + i)
-000000E8:             ; ;;INP in R3 is the number of bytes to copy
-000000E8: E3A05000    ;     mov R5, #0 ;;i
-000000EC:             ; memcpybytesloop
-000000EC: E1550003    ;     cmp R5, R3
-000000F0: 0A000003    ;     beq memcpybyteslend ;;i < bytes2cpy
-000000F4:             ; 
-000000F4: E7D04005    ;     ldrb R4, [R0, R5]
-000000F8: E7C14005    ;     strb R4, [R1, R5] ;;dst[i] = src[i]
-000000FC:             ; 
-000000FC: E2855001    ;     add R5, R5, #1 ;;i++
-00000100:             ; 
-00000100: EAFFFFF9    ;     b memcpybytesloop
+000000C8:             ;     ;;Now find the number of words that can be written i.e. bytes2cpy / 4 (bytes2cpy >> 2)
+000000C8: E1A03122    ;     mov R3, R2, lsr#2
+000000CC: E3A04000    ;     mov R4, #0 ;;i
+000000D0:             ; memcpywordsloop
+000000D0: E1540003    ;     cmp R4, R3
+000000D4: 0A000003    ;     beq memcpywordslend
+000000D8:             ; 
+000000D8: E7906004    ;     ldr R6, [R0, R4]
+000000DC: E7816004    ;     str R6, [R1, R4]
+000000E0:             ;     
+000000E0: E2844001    ;     add R4, R4, #1
+000000E4:             ; 
+000000E4: EAFFFFF9    ;     b memcpywordsloop
+000000E8:             ;     
+000000E8:             ; memcpywordslend
+000000E8:             ; ;;Now copy the remaining bytes
+000000E8: E2022003    ;     and R2, R2, #0b11
+000000EC: E1A03002    ;     mov R3, R2
+000000F0: EB000003    ;     bl memcpybytes
+000000F4: EA00000A    ;     b memcpyend
+000000F8:             ; 
+000000F8:             ; memcpyallbytes
+000000F8: E1A03002    ;     mov R3, R2
+000000FC: EB000000    ;     bl memcpybytes
+00000100: EA000007    ;     b memcpyend
 00000104:             ; 
-00000104:             ; memcpybyteslend
-00000104: E1A0F00E    ;     mov R15, R14
-00000108:             ; 
-00000108:             ; memcpyend
-00000108: E8BD41F0    ;     pop {R14, R4-R8}
-0000010C: E1A0F00E    ;     mov R15, R14
+00000104:             ; memcpybytes
+00000104:             ; ;;This is an internal function to memcpy and so doesn't follow the calling convention, it also 
+                      ; assumes values are in place from memcpy
+00000104:             ; ;;for (int i = 0; i < byte2cpy; i++) {
+00000104:             ; ;;      *(dst + i) = *(src + i)
+00000104:             ; ;;INP in R3 is the number of bytes to copy
+00000104: E3A05000    ;     mov R5, #0 ;;i
+00000108:             ; memcpybytesloop
+00000108: E1550003    ;     cmp R5, R3
+0000010C: 0A000003    ;     beq memcpybyteslend ;;i < bytes2cpy
 00000110:             ; 
-00000110:             ; getstring
-00000110:             ; ;;INP in R0 the terminator character
-00000110:             ; ;;INP in R1 the max number of characters or -1 for no max
-00000110:             ; ;;INP in R2 boolean (non-0/0) for if letters should be printed out as well
-00000110:             ; ;;RET in R0 a ptr to the memory address
-00000110:             ; ;;
-00000110:             ; ;;Dynamically allocate memory to support large string
-00000110:             ; 
-00000110:             ; ;;buff = malloc(minBytes)
-00000110:             ; ;;while (input != terminator) 
-00000110:             ; ;;  buff[pos] = input
-00000110:             ; ;;  if (pos > buffSize)
-00000110:             ; ;;      nBuff = malloc(buffSize << 1)
-00000110:             ; ;;      memcpy from buff to nBuff
-00000110:             ; ;;      free buff
-00000110:             ; ;;      buff = nBuff
-00000110:             ; 
-00000110: E92D47F0    ;     push {R14, R4-R10}
-00000114:             ; 
-00000114: E1A08000    ;     mov R8, R0 ;;now holds terminator
-00000118: E1A09001    ;     mov R9, R1 ;;nax chars
-0000011C: E1A0A002    ;     mov R10, R2 ;;print bool
+00000110: E7D04005    ;     ldrb R4, [R0, R5]
+00000114: E7C14005    ;     strb R4, [R1, R5] ;;dst[i] = src[i]
+00000118:             ; 
+00000118: E2855001    ;     add R5, R5, #1 ;;i++
+0000011C:             ; 
+0000011C: EAFFFFF9    ;     b memcpybytesloop
 00000120:             ; 
-00000120: E3A03008    ;     ldr R3, =minBuffSize ;;R3 will hold the current size of the buffer
-00000124: E1A00003    ;     mov R0, R3
-00000128: EB00003E    ;     bl malloc
-0000012C: E1A04000    ;     mov R4, R0 ;;R4 is the address of the buffer
+00000120:             ; memcpybyteslend
+00000120: E1A0F00E    ;     mov R15, R14
+00000124:             ; 
+00000124:             ; memcpyend
+00000124: E8BD41F0    ;     pop {R14, R4-R8}
+00000128: E1A0F00E    ;     mov R15, R14
+0000012C:             ; 
+0000012C:             ; getstring
+0000012C:             ; ;;INP in R0 the terminator character
+0000012C:             ; ;;INP in R1 the max number of characters or -1 for no max
+0000012C:             ; ;;INP in R2 boolean (non-0/0) for if letters should be printed out as well
+0000012C:             ; ;;RET in R0 a ptr to the memory address
+0000012C:             ; ;;
+0000012C:             ; ;;Dynamically allocate memory to support large string
+0000012C:             ; 
+0000012C:             ; ;;buff = malloc(minBytes)
+0000012C:             ; ;;while (input != terminator) 
+0000012C:             ; ;;  buff[pos] = input
+0000012C:             ; ;;  if (pos > buffSize)
+0000012C:             ; ;;      nBuff = malloc(buffSize << 1)
+0000012C:             ; ;;      memcpy from buff to nBuff
+0000012C:             ; ;;      free buff
+0000012C:             ; ;;      buff = nBuff
+0000012C:             ; 
+0000012C: E92D47F0    ;     push {R14, R4-R10}
 00000130:             ; 
-00000130: E3A05000    ;     mov R5, #0 ;;R5 is the loop counter/index into buffer
-00000134:             ; getstringloop
-00000134: EF000001    ;     swi 1 ;;get input
-00000138: E1500008    ;     cmp R0, R8 ;;is input == terminator character
-0000013C: 0A00000E    ;     beq getstringlend
-00000140:             ; 
-00000140: E7840005    ;     str R0, [R4, R5] ;;buff[pos] = input
-00000144:             ; 
-00000144: E1550003    ;     cmp R5, R3
-00000148: CA000000    ;     bgt getstringresize
+00000130: E1A08000    ;     mov R8, R0 ;;now holds terminator
+00000134: E1A09001    ;     mov R9, R1 ;;nax chars
+00000138: E1A0A002    ;     mov R10, R2 ;;print bool
+0000013C:             ; 
+0000013C: E3A03008    ;     ldr R3, =minBuffSize ;;R3 will hold the current size of the buffer
+00000140: E1A00003    ;     mov R0, R3
+00000144: EB00003E    ;     bl malloc
+00000148: E1A04000    ;     mov R4, R0 ;;R4 is the address of the buffer
 0000014C:             ; 
-0000014C: EAFFFFF8    ;     b getstringloop
-00000150:             ; 
-00000150:             ; getstringresize
-00000150:             ;     ;;r6 will hold new buffer
-00000150: E1A00083    ;     mov R0, R3, lsl #1
-00000154: EB000033    ;     bl malloc
-00000158: E1A06000    ;     mov R6, R0
+0000014C: E3A05000    ;     mov R5, #0 ;;R5 is the loop counter/index into buffer
+00000150:             ; getstringloop
+00000150: EF000001    ;     swi 1 ;;get input
+00000154: E1500008    ;     cmp R0, R8 ;;is input == terminator character
+00000158: 0A00000E    ;     beq getstringlend
 0000015C:             ; 
-0000015C: E1A00004    ;     mov R0, R4 ;;old buff
-00000160: E1A01006    ;     mov R1, R6 ;;newBuff
-00000164: E1A02005    ;     mov R2, R5 ;;bytes to write
-00000168: EBFFFFC7    ;     bl memcpy
+0000015C: E7840005    ;     str R0, [R4, R5] ;;buff[pos] = input
+00000160:             ; 
+00000160: E1550003    ;     cmp R5, R3
+00000164: CA000000    ;     bgt getstringresize
+00000168:             ; 
+00000168: EAFFFFF8    ;     b getstringloop
 0000016C:             ; 
-0000016C: E1A00004    ;     mov R0, R4
-00000170: EB000055    ;     bl free
-00000174: E1A04006    ;     mov R4, R6
+0000016C:             ; getstringresize
+0000016C:             ;     ;;r6 will hold new buffer
+0000016C: E1A00083    ;     mov R0, R3, lsl #1
+00000170: EB000033    ;     bl malloc
+00000174: E1A06000    ;     mov R6, R0
 00000178:             ; 
-00000178: EAFFFFED    ;     b getstringloop
-0000017C:             ; 
-0000017C:             ; getstringlend
-0000017C:             ; 
-0000017C:             ; getstringEnd
-0000017C: E1A00004    ;     mov R0, R4
-00000180:             ; 
-00000180: E8BD43F0    ;     pop {R14, R4-R9}
-00000184: E1A0F00E    ;     mov R15, R14
+00000178: E1A00004    ;     mov R0, R4 ;;old buff
+0000017C: E1A01006    ;     mov R1, R6 ;;newBuff
+00000180: E1A02005    ;     mov R2, R5 ;;bytes to write
+00000184: EBFFFFC7    ;     bl memcpy
 00000188:             ; 
-00000188:             ; setupOptions
-00000188: E28F0F7A    ;     adrl R0, askdefaults ;;ask q
-0000018C: EF000003    ;     swi 3
-00000190: EF000001    ;     swi 1   ;;get character answer
-00000194: EF000000    ;     swi 0
-00000198: E3500059    ;     cmp R0, #'Y'
-0000019C: E3A0000A    ;     ldr R0, =nlchar
-000001A0: EF000000    ;     swi 0
+00000188: E1A00004    ;     mov R0, R4
+0000018C: EB000056    ;     bl free
+00000190: E1A04006    ;     mov R4, R6
+00000194:             ; 
+00000194: EAFFFFED    ;     b getstringloop
+00000198:             ; 
+00000198:             ; getstringlend
+00000198:             ; 
+00000198:             ; getstringEnd
+00000198: E1A00004    ;     mov R0, R4
+0000019C:             ; 
+0000019C: E8BD43F0    ;     pop {R14, R4-R9}
+000001A0: E1A0F00E    ;     mov R15, R14
 000001A4:             ; 
-000001A4: 1A000000    ;     bne setupCustom
-000001A8:             ; 
-000001A8: E1A0F00E    ;     mov R15, R14 ;;RET
-000001AC:             ; 
-000001AC:             ; setupCustom
-000001AC:             ; ;;ask for erase, slow, dims
-000001AC: E3A01001    ;     mov R1, #1
-000001B0:             ; 
-000001B0: E28F00F2    ;     adrl R0, askerase
-000001B4: E2800C01    ; 
-000001B8: EF000003    ;     swi 3
-000001BC: EF000001    ;     swi 1
-000001C0: EF000000    ;     swi 0
-000001C4: E3500059    ;     cmp R0, #'Y'
-000001C8: E3A0000A    ;     ldr R0, =nlchar
-000001CC: EF000000    ;     swi 0
-000001D0: 05CF1244    ;     streqb R1, erase_b
-000001D4:             ;  
-000001D4: E28F00E7    ;     adrl R0, askslow
-000001D8: E2800C01    ; 
-000001DC: EF000003    ;     swi 3
-000001E0: EF000001    ;     swi 1
-000001E4: EF000000    ;     swi 0 
-000001E8: E3500059    ;     cmp R0, #'Y' 
-000001EC: E3A0000A    ;     ldr R0, =nlchar
-000001F0: EF000000    ;     swi 0
-000001F4: 05CF1221    ;     streqb R1, slow_b
-000001F8:             ; 
-000001F8: E1A0F00E    ;     mov R15, R14 ;;RET
-000001FC:             ; 
-000001FC:             ; ;; The heap will be a linked list of free blocks - unlike the Comodo version which stores both 
+000001A4:             ; setupOptions
+000001A4: E28F0F81    ;     adrl R0, askdefaults ;;ask q
+000001A8: EF000003    ;     swi 3
+000001AC: EF000001    ;     swi 1   ;;get character answer
+000001B0: EF000000    ;     swi 0
+000001B4: E3500059    ;     cmp R0, #'Y'
+000001B8: E3A0000A    ;     ldr R0, =nlchar
+000001BC: EF000000    ;     swi 0
+000001C0:             ; 
+000001C0: 1A000000    ;     bne setupCustom
+000001C4:             ; 
+000001C4: E1A0F00E    ;     mov R15, R14 ;;RET
+000001C8:             ; 
+000001C8:             ; setupCustom
+000001C8:             ; ;;ask for erase, slow, dims
+000001C8: E3A01001    ;     mov R1, #1
+000001CC:             ; 
+000001CC: E28F000E    ;     adrl R0, askerase
+000001D0: E2800C02    ; 
+000001D4: EF000003    ;     swi 3
+000001D8: EF000001    ;     swi 1
+000001DC: EF000000    ;     swi 0
+000001E0: E3500059    ;     cmp R0, #'Y'
+000001E4: E3A0000A    ;     ldr R0, =nlchar
+000001E8: EF000000    ;     swi 0
+000001EC: 05CF1260    ;     streqb R1, erase_b
+000001F0:             ;  
+000001F0: E28F0003    ;     adrl R0, askslow
+000001F4: E2800C02    ; 
+000001F8: EF000003    ;     swi 3
+000001FC: EF000001    ;     swi 1
+00000200: EF000000    ;     swi 0 
+00000204: E3500059    ;     cmp R0, #'Y' 
+00000208: E3A0000A    ;     ldr R0, =nlchar
+0000020C: EF000000    ;     swi 0
+00000210: 05CF123D    ;     streqb R1, slow_b
+00000214:             ; 
+00000214: E1A0F00E    ;     mov R15, R14 ;;RET
+00000218:             ; 
+00000218:             ; ;; The heap will be a linked list of free blocks - unlike the Comodo version which stores both 
                       ; free & taken blocks 
-000001FC:             ; ;; This is an idea I'm stealing from the C programming book
-000001FC:             ; ;; Crate structure
-000001FC:             ; ;;  |-ptr to next crate (1 word)
-000001FC:             ; ;;  |-ptr to prev crate (1 word)
-000001FC:             ; ;;  `-Size (bytes)      (1 word)
-000001FC:             ; ;; 
-000001FC:             ; 
-000001FC:             ; ;;  Traversal of the heap
-000001FC:             ; ;;  Unlink in my Comodo implimentation the heap is not a linked list of all Crates (free or not
+00000218:             ; ;; This is an idea I'm stealing from the C programming book
+00000218:             ; ;; Crate structure
+00000218:             ; ;;  |-ptr to next crate (1 word)
+00000218:             ; ;;  |-ptr to prev crate (1 word)
+00000218:             ; ;;  `-Size (bytes)      (1 word)
+00000218:             ; ;; 
+00000218:             ; 
+00000218:             ; ;;  Traversal of the heap
+00000218:             ; ;;  Unlink in my Comodo implimentation the heap is not a linked list of all Crates (free or not
                       ; )
-000001FC:             ; ;;  That made traversing the heap for debugging purposes very easy, in this case taken crates d
+00000218:             ; ;;  That made traversing the heap for debugging purposes very easy, in this case taken crates d
                       ; o not point to the next
-000001FC:             ; ;;  Instead could start at head and then just go to addr + sizeof(Crate) + size. This should ta
+00000218:             ; ;;  Instead could start at head and then just go to addr + sizeof(Crate) + size. This should ta
                       ; ke us to the next crate, free or not
-000001FC:             ; ;;  
-000001FC:             ; setupHeap
-000001FC:             ; ;;NO INP
-000001FC:             ; ;;NO OUT
-000001FC:             ;     ;;we have the heapstart
-000001FC:             ;     ;;the end of the heap will be 0x100000 (it will overlap with the stack :) )
-000001FC: E59F0214    ;     ldr R0, heaphead ;;stores the mem addr of the start of the heap
-00000200: E3A01601    ;     ldr R1, =max_addr ;;stores the end of the heap
-00000204: E3A02801    ;     ldr R2, =stack_size
-00000208: E0411002    ;     sub R1, R1, R2
-0000020C:             ; 
-0000020C: E0411000    ;     sub R1, R1, R0  ;;HEAPEND - HEAPSTART = TOTAL STORAGE (bytes)
-00000210: E241100C    ;     sub R1, R1, #12 ;;SIZE -= SIZEOF(CRATE) (12 bytes)
-00000214: E5801008    ;     str R1, [R0, #8] ;;set the size of the crate
-00000218: E3A01000    ;     mov R1, #0
-0000021C: E5801004    ;     str R1, [R0, #4] ;;set the prev ptr
-00000220: E5801000    ;     str R1, [R0, #0] ;;set the next ptr
-00000224:             ; 
-00000224: E1A0F00E    ;     mov R15, R14
+00000218:             ; ;;  
+00000218:             ; setupHeap
+00000218:             ; ;;NO INP
+00000218:             ; ;;NO OUT
+00000218:             ;     ;;we have the heapstart
+00000218:             ;     ;;the end of the heap will be 0x100000 (it will overlap with the stack :) )
+00000218: E59F0230    ;     ldr R0, heaphead ;;stores the mem addr of the start of the heap
+0000021C: E3A01601    ;     ldr R1, =max_addr ;;stores the end of the heap
+00000220: E3A02801    ;     ldr R2, =stack_size
+00000224: E0411002    ;     sub R1, R1, R2
 00000228:             ; 
-00000228:             ; ;; The heap is a linked list of free Crates and so find the header and then go though until one
-                      ;  satifies the size requirement
-00000228:             ; ;;  end if next is 0
-00000228:             ; ;;  once found either take over the crate or split it into two new crates
-00000228:             ; ;;  align the bytes amount to 8 byte boundry
-00000228:             ; malloc
-00000228:             ; ;;INP into R0 bytes to allocate
-00000228:             ; ;;OUT into R0 the ptr to the memory or 0 for no memory allocated
-00000228:             ;     ;;step 1 align the bytes
-00000228:             ;     ;;1001010 & 0111 = 0000010 ;2
-00000228:             ;     ;;if 0 goto alignend
-00000228:             ;     ;;1001010 + (8 - 2)
-00000228: E92D0010    ;     push {R4}
-0000022C:             ; 
-0000022C: E2001007    ;     and R1, R0, #0b0111
-00000230: E3510000    ;     cmp R1, #0
-00000234: 0B000002    ;     bleq mallignend
-00000238: E3A03008    ;     mov R3, #0b1000
-0000023C: E0432001    ;     sub R2, R3, R1
-00000240: E0800002    ;     add R0, R0, R2
+00000228: E0411000    ;     sub R1, R1, R0  ;;HEAPEND - HEAPSTART = TOTAL STORAGE (bytes)
+0000022C: E241100C    ;     sub R1, R1, #12 ;;SIZE -= SIZEOF(CRATE) (12 bytes)
+00000230: E5801008    ;     str R1, [R0, #8] ;;set the size of the crate
+00000234: E3A01000    ;     mov R1, #0
+00000238: E5801004    ;     str R1, [R0, #4] ;;set the prev ptr
+0000023C: E5801000    ;     str R1, [R0, #0] ;;set the next ptr
+00000240:             ; 
+00000240: E1A0F00E    ;     mov R15, R14
 00000244:             ; 
-00000244:             ; mallignend
-00000244: E59F11CC    ;     ldr R1, heaphead ;;stores a ptr to the first block
-00000248:             ;     
-00000248:             ; checkcrate
-00000248: E5912008    ;     ldr R2, [R1, #8] ;;Size of the crate
-0000024C: E1500002    ;     cmp R0, R2 ;;bytes needed - bytes in crate
-00000250: DA000006    ;     ble foundcrate
-00000254: E5912000    ;     ldr R2, [R1, #0] ;;get the next ptr
-00000258: E3520000    ;     cmp R2, #0
-0000025C: 0A000001    ;     beq nocrates
-00000260: E1A01002    ;     mov R1, R2 ;;swap the current crate with the next crate
-00000264: EAFFFFF7    ;     b checkcrate
-00000268:             ; nocrates
-00000268: E3A00000    ;     mov R0, #0
-0000026C: EA000014    ;     b mallocEnd
-00000270:             ; 
-00000270:             ; foundcrate
-00000270:             ;     ;;Once a crate that we can use has been found we need to either split the crate or use the 
+00000244:             ; ;; The heap is a linked list of free Crates and so find the header and then go though until one
+                      ;  satifies the size requirement
+00000244:             ; ;;  end if next is 0
+00000244:             ; ;;  once found either take over the crate or split it into two new crates
+00000244:             ; ;;  align the bytes amount to 8 byte boundry
+00000244:             ; malloc
+00000244:             ; ;;INP into R0 bytes to allocate
+00000244:             ; ;;OUT into R0 the ptr to the memory or 0 for no memory allocated
+00000244:             ;     ;;step 1 align the bytes
+00000244:             ;     ;;1001010 & 0111 = 0000010 ;2
+00000244:             ;     ;;if 0 goto alignend
+00000244:             ;     ;;1001010 + (8 - 2)
+00000244: E92D0010    ;     push {R4}
+00000248:             ; 
+00000248: E2001007    ;     and R1, R0, #0b0111
+0000024C: E3510000    ;     cmp R1, #0
+00000250: 0A000002    ;     beq mallignend
+00000254: E3A03008    ;     mov R3, #0b1000
+00000258: E0432001    ;     sub R2, R3, R1
+0000025C: E0800002    ;     add R0, R0, R2
+00000260:             ; 
+00000260:             ; mallignend
+00000260: E59F11E8    ;     ldr R1, heaphead ;;stores a ptr to the first block
+00000264:             ;     
+00000264:             ; checkcrate
+00000264: E5912008    ;     ldr R2, [R1, #8] ;;Size of the crate
+00000268: E1500002    ;     cmp R0, R2 ;;bytes needed - bytes in crate
+0000026C: DA000006    ;     ble foundcrate
+00000270: E5912000    ;     ldr R2, [R1, #0] ;;get the next ptr
+00000274: E3520000    ;     cmp R2, #0
+00000278: 0A000001    ;     beq nocrates
+0000027C: E1A01002    ;     mov R1, R2 ;;swap the current crate with the next crate
+00000280: EAFFFFF7    ;     b checkcrate
+00000284:             ; nocrates
+00000284: E3A00000    ;     mov R0, #0
+00000288: EA000015    ;     b mallocEnd
+0000028C:             ; 
+0000028C:             ; foundcrate
+0000028C:             ;     ;;Once a crate that we can use has been found we need to either split the crate or use the 
                       ; crate
-00000270:             ;     ;;We should use the whole crate only when its size < bytesneeded + CrateHeader + 8
-00000270:             ;     ;;This would give the edge case crate 8 bytes
-00000270:             ;     
-00000270:             ;     ;;R1 holds the found crate ptr
-00000270:             ;     ;;R0 is the bytes requested and aligned
-00000270: E2802014    ;     add R2, R0, #20 ;;A crate header is 12 bytes + the extra 8 bytes minimum
-00000274: E5913008    ;     ldr R3, [R1, #8]
-00000278: E1530002    ;     cmp R3, R2
-0000027C: BA00000B    ;     blt usecrate
-00000280:             ; splitcrate
-00000280:             ;     ;;In this case we have a large crate that should be split up.
-00000280:             ;     ;;ATM the crate will just be split up to where the requested memory is at the end of the fr
+0000028C:             ;     ;;We should use the whole crate only when its size < bytesneeded + CrateHeader + 8
+0000028C:             ;     ;;This would give the edge case crate 8 bytes
+0000028C:             ;     
+0000028C:             ;     ;;R1 holds the found crate ptr
+0000028C:             ;     ;;R0 is the bytes requested and aligned
+0000028C: E2802014    ;     add R2, R0, #20 ;;A crate header is 12 bytes + the extra 8 bytes minimum
+00000290: E5913008    ;     ldr R3, [R1, #8]
+00000294: E1530002    ;     cmp R3, R2
+00000298: BA00000C    ;     blt usecrate
+0000029C:             ; splitcrate
+0000029C:             ;     ;;In this case we have a large crate that should be split up.
+0000029C:             ;     ;;ATM the crate will just be split up to where the requested memory is at the end of the fr
                       ; ee Crate.
-00000280:             ; 
-00000280: E5913008    ;     ldr R3, [R1, #8] ;;The size of the toSplit Crate
-00000284: E0433000    ;     sub R3, R3, R0 ;; size - bytesRequested
-00000288: E243300C    ;     sub R3, R3, #12 ;; size - bytesRequested - sizeof(Crate)
-0000028C: E5813008    ;     str R3, [R1, #8] ;;toSplit->size = newSize
-00000290:             ; 
-00000290: E0833001    ;     add R3, R3, R1 ;; newSize + toSplit.addr
-00000294: E283400C    ;     add R4, R3, #12 ;; newSize + toSplit.addr + sizeof(Crate) = position of new Crate
-00000298:             ; 
-00000298:             ;     ;;Setup the header for the newCrate
-00000298: E3A02000    ;     mov R2, #0
-0000029C: E5832000    ;     str R2, [R3, #0] ;;next = 0
-000002A0: E5832004    ;     str R2, [R3, #4] ;;prev = 0
-000002A4: E5830008    ;     str R0, [R3, #8] ;;size = requested and aligned
-000002A8:             ; 
-000002A8:             ;     ;;MAYBE: can the crates that are taken have a smaller header than those that are free. Take
-                      ; n crates need not store the next, prev free nodes
-000002A8:             ;     ;;This may complicate things as size would need to be moved around and the size from taken 
-                      ; to free would be different. 
-000002A8:             ; 
-000002A8: E1A00004    ;     mov R0, R4
+0000029C:             ; 
+0000029C: E5913008    ;     ldr R3, [R1, #8] ;;The size of the toSplit Crate
+000002A0: E0433000    ;     sub R3, R3, R0 ;; size - bytesRequested
+000002A4: E243300C    ;     sub R3, R3, #12 ;; size - bytesRequested - sizeof(Crate)
+000002A8: E5813008    ;     str R3, [R1, #8] ;;toSplit->size = newSize
 000002AC:             ; 
-000002AC: EA000004    ;     b mallocEnd
-000002B0:             ; 
-000002B0:             ; usecrate
-000002B0:             ;     ;; Simplest option as we can just remove it from the list
-000002B0:             ;     ;; c1 <-> c2 <-> c3 ==> c1 <-> c3
-000002B0: E5912000    ;     ldr R2, [R1, #0] ;;next ptr
-000002B4: E5913004    ;     ldr R3, [R1, #4] ;;prev ptr
-000002B8: E5823004    ;     str R3, [R2, #4] ;;Store c1 into c3's previous
-000002BC: E5832000    ;     str R2, [R3, #0] ;;Store c3 into c1's next
-000002C0:             ; 
-000002C0: E1A00001    ;     mov R0, R1 ;;move the found crate's address into the return register ;;The crate header is 
-                      ; no longer needed
+000002AC: E0833001    ;     add R3, R3, R1 ;; newSize + toSplit.addr
+000002B0: E283400C    ;     add R4, R3, #12 ;; newSize + toSplit.addr + sizeof(Crate) = position of new Crate
+000002B4:             ; 
+000002B4:             ;     ;;Setup the header for the newCrate
+000002B4: E3A02000    ;     mov R2, #0
+000002B8: E5842000    ;     str R2, [R4, #0] ;;next = 0
+000002BC: E5842004    ;     str R2, [R4, #4] ;;prev = 0
+000002C0: E5840008    ;     str R0, [R4, #8] ;;size = requested and aligned
 000002C4:             ; 
-000002C4:             ; mallocEnd
-000002C4: E8BD0010    ;     pop {R4}
-000002C8: E1A0F00E    ;     mov R15, R14
+000002C4:             ;     ;;MAYBE: can the crates that are taken have a smaller header than those that are free. Take
+                      ; n crates need not store the next, prev free nodes
+000002C4:             ;     ;;This may complicate things as size would need to be moved around and the size from taken 
+                      ; to free would be different. 
+000002C4:             ; 
+000002C4: E284400C    ;     add R4, R4, #12
+000002C8:             ; 
+000002C8: E1A00004    ;     mov R0, R4
 000002CC:             ; 
-000002CC:             ; free
-000002CC:             ; ;;INP in R0 is the mem addr of the data to be freed
-000002CC:             ; ;;OUT in R0 is the success code - 0 for mem freed, ¬0 for error ;;probably won't be currently 
-                      ; used `=(- -)=' 
-000002CC:             ;     ;;In order to free memory we need to add it back to the linked list
-000002CC:             ;     ;;Following K&R's version the linked list will be ordered by address this will make finding
-                      ;  consecutive memory locations that should be combined easier
-000002CC:             ; 
-000002CC:             ;     ;;The inputted address of the crate is the address given in malloc and so the start of the 
-                      ; crate is that addr - sizeof(Crate) (#12)
-000002CC:             ; 
-000002CC:             ;     ;;heapHead = first Crate
-000002CC:             ;     ;;current = heapHead
-000002CC:             ;     ;;while (toFree.addr > current.addr)
-000002CC:             ;     ;;  current = current.next
-000002CC:             ;     ;;
-000002CC:             ;     ;;//Add the toFree Crate inbetween the current and its previous i.e.  A<->B<->C, toFree = D
-                      ;  (addr < C, addr > B) ==> A<->B<->D<->C
-000002CC:             ;     ;;current->prev->next = toFree
-000002CC:             ;     ;;toFree->prev = current.prev
-000002CC:             ;     ;;current->prev = toFree
-000002CC:             ;     ;;toFree->next = current
-000002CC:             ; 
-000002CC:             ;     ;; Crate structure
-000002CC:             ;     ;;  |-ptr to next crate (1 word)
-000002CC:             ;     ;;  |-ptr to prev crate (1 word)
-000002CC:             ;     ;;  `-Size (bytes)      (1 word)
-000002CC:             ; 
-000002CC: E92D01F0    ;     push {R4-R8}
+000002CC: EA000004    ;     b mallocEnd
 000002D0:             ; 
-000002D0: E59F1140    ;     ldr R1, heaphead ;;R1 will hold the current
-000002D4:             ; freeloop
-000002D4: E1500001    ;     cmp R0, R1 ;;compare the address of the toFree to the address of current
-000002D8: DA000004    ;     ble freelend ;;toFree.addr <= current.addr
-000002DC: E5912000    ;     ldr R2, [R1, #0] ;;load the ptr to the next
+000002D0:             ; usecrate
+000002D0:             ;     ;; Simplest option as we can just remove it from the list
+000002D0:             ;     ;; c1 <-> c2 <-> c3 ==> c1 <-> c3
+000002D0: E5912000    ;     ldr R2, [R1, #0] ;;next ptr
+000002D4: E5913004    ;     ldr R3, [R1, #4] ;;prev ptr
+000002D8: E5823004    ;     str R3, [R2, #4] ;;Store c1 into c3's previous
+000002DC: E5832000    ;     str R2, [R3, #0] ;;Store c3 into c1's next
 000002E0:             ; 
-000002E0: E3520000    ;     cmp R2, #0 ;;If there are no more Crates to the right then this could be a new Crate at the
-                      ;  end or |F|T| it should merge left 
-000002E4: 0A000001    ;     beq freelend
-000002E8:             ; 
-000002E8: E1A01002    ;     mov R1, R2 ;;current = current.next
+000002E0: E1A00001    ;     mov R0, R1 ;;move the found crate's address into the return register ;;The crate header is 
+                      ; no longer needed
+000002E4:             ; 
+000002E4:             ; mallocEnd
+000002E4: E8BD0010    ;     pop {R4}
+000002E8: E1A0F00E    ;     mov R15, R14
 000002EC:             ; 
-000002EC: EAFFFFF8    ;     b freeloop
+000002EC:             ; free
+000002EC:             ; ;;INP in R0 is the mem addr of the data to be freed
+000002EC:             ; ;;OUT in R0 is the success code - 0 for mem freed, ¬0 for error ;;probably won't be currently 
+                      ; used `=(- -)=' 
+000002EC:             ;     ;;In order to free memory we need to add it back to the linked list
+000002EC:             ;     ;;Following K&R's version the linked list will be ordered by address this will make finding
+                      ;  consecutive memory locations that should be combined easier
+000002EC:             ; 
+000002EC:             ;     ;;The inputted address of the crate is the address given in malloc and so the start of the 
+                      ; crate is that addr - sizeof(Crate) (#12)
+000002EC:             ; 
+000002EC:             ;     ;;heapHead = first Crate
+000002EC:             ;     ;;current = heapHead
+000002EC:             ;     ;;while (toFree.addr > current.addr)
+000002EC:             ;     ;;  current = current.next
+000002EC:             ;     ;;
+000002EC:             ;     ;;//Add the toFree Crate inbetween the current and its previous i.e.  A<->B<->C, toFree = D
+                      ;  (addr < C, addr > B) ==> A<->B<->D<->C
+000002EC:             ;     ;;current->prev->next = toFree
+000002EC:             ;     ;;toFree->prev = current.prev
+000002EC:             ;     ;;current->prev = toFree
+000002EC:             ;     ;;toFree->next = current
+000002EC:             ; 
+000002EC:             ;     ;; Crate structure
+000002EC:             ;     ;;  |-ptr to next crate (1 word)
+000002EC:             ;     ;;  |-ptr to prev crate (1 word)
+000002EC:             ;     ;;  `-Size (bytes)      (1 word)
+000002EC:             ; 
+000002EC: E92D01F0    ;     push {R4-R8}
 000002F0:             ; 
-000002F0:             ; freelend
-000002F0:             ;     ;; R1 holds the current (left)
-000002F0:             ;     ;; R2 holds the c->next (right)
-000002F0: E5912000    ;     ldr R2, [R1, #0]
-000002F4:             ; 
-000002F4:             ;     ;;Setup the ptrs for the crates this will help later on   left<->toFree<->right ;;left,righ
-                      ; t can be 0
-000002F4: E5914004    ;     ldr R4, [R1, #4]    ;; R4 holds current->prev
-000002F8: E3540000    ;     cmp R4, #0
-000002FC: 15840000    ;     strne R0, [R4, #0]  ;; current->prev->next = toFree
-00000300: E5804004    ;     str R4, [R0, #4]    ;; toFree->prev = current->prev
-00000304: 15040000    ;     strne R0, [R4]      ;; current->prev = toFree
-00000308: E5801000    ;     str R1, [R0, #0]    ;; toFree->next = current
+000002F0: E59F1158    ;     ldr R1, heaphead ;;R1 will hold the current
+000002F4: E240000C    ;     sub R0, R0, #12 ;;subtract sizeof(Crate) to get header pointer
+000002F8:             ; freeloop
+000002F8: E5912000    ;     ldr R2, [R1, #0] ;;load the ptr to the next
+000002FC: E1520000    ;     cmp R2, R0 ;;compare the address of the toFree to the address of current->next
+00000300:             ; 
+00000300: AA000003    ;     bge freelend ;;current->next.addr >= toFree.addr
+00000304:             ; 
+00000304: E3520000    ;     cmp R2, #0 ;;If there are no more Crates to the right then this could be a new Crate at the
+                      ;  end or |F|T| it should merge left 
+00000308: 0A000009    ;     beq freelendEnd
 0000030C:             ; 
-0000030C: EAFFFFFF    ;     b freeMergeCheck
+0000030C: E1A01002    ;     mov R1, R2 ;;current = current.next
 00000310:             ; 
-00000310:             ; freeMergeCheck
-00000310:             ;     ;;We have a ptr to current. This should be the closest Crate to the left of toFree
-00000310:             ;     ;;We also have the next Crate (null or not) which is to the right of toFree
-00000310:             ;     ;;Both of these crates MAY need to be merged but could also have taken crates in between
-00000310:             ;     ;;First is to check if the crates are adjacent
-00000310:             ;     ;;  If they are NOT then create a newCrate
-00000310:             ;     ;;  If they are     then merge both
-00000310:             ;     ;;  If only one     then merge either left or right
-00000310:             ; 
-00000310:             ;     ;;R1 will be left
-00000310:             ;     ;;R2 will be right
-00000310:             ; 
-00000310: E3510000    ;     cmp R1, #0
-00000314: 01A01000    ;     moveq R1, R0 ;;If there is no left crate then left=toFree
-00000318: E3520000    ;     cmp R2, #0
-0000031C: 01A02000    ;     moveq R2, R0 ;;If there is no right crate (more likely) then right=toFree
-00000320:             ; 
-00000320:             ; verifyLeft
-00000320:             ;     ;;Check if the left is adjacent
-00000320:             ;     ;;It will be if (left.addr + sizeof(Crate) + left.size == toFree.addr)
-00000320:             ; 
-00000320: E5913008    ;     ldr R3, [R1, #8]
-00000324: E283300C    ;     add R3, R3, #12 ;;12 is sizeof(Crate) + left.size
-00000328: E0833001    ;     add R3, R3, R1 ;; + left.addr
-0000032C:             ; 
-0000032C: E1530000    ;     cmp R3, R0
-00000330: 11A01000    ;     movne R1, R0
+00000310: EAFFFFF8    ;     b freeloop
+00000314:             ; 
+00000314:             ; freelend
+00000314:             ;     ;; R1 holds the current (left)
+00000314:             ;     ;; R2 holds the c->next (right)
+00000314: E5912000    ;     ldr R2, [R1, #0]
+00000318:             ; 
+00000318:             ;     ;;Setup the ptrs for the crates this will help later on   left<->toFree<->right ;;left,righ
+                      ; t can be 0
+00000318:             ;     ;;We're just adding the new crate to the linked list
+00000318:             ;     ;;current->next->prev = toFree
+00000318:             ;     ;;toFree->next = current->next
+00000318:             ;     ;;current->next = toFree
+00000318:             ;     ;;toFree->prev = current
+00000318:             ; 
+00000318: E5913000    ;     ldr R3, [R1, #0] ;;holds current->next
+0000031C: E3530000    ;     cmp R3, #0
+00000320: 15830004    ;     strne R0, [R3, #4] ;;current->next->prev = toFree
+00000324: E5803000    ;     str R3, [R0, #0] ;;toFree->next = current->next
+00000328: E5810000    ;     str R0, [R1, #0] ;;current->next = toFree
+0000032C: E5801004    ;     str R1, [R0, #4] ;;toFree->prev = current
+00000330:             ; 
+00000330: EA000001    ;     b freeMergeCheck
 00000334:             ; 
-00000334:             ; verifyRight
-00000334:             ;     ;;Same as left but with R2
-00000334: E5923008    ;     ldr R3, [R2, #8]
-00000338: E283300C    ;     add R3, R3, #12 ;;12 is sizeof(Crate) + left.size
-0000033C: E0833002    ;     add R3, R3, R2 ;; + left.addr
-00000340:             ; 
-00000340: E1530000    ;     cmp R3, R0
-00000344: 11A02000    ;     movne R2, R0
-00000348:             ; 
-00000348:             ; merge
-00000348:             ;     ;;Merge the two Crates given in R1 and R2
-00000348:             ;     ;;left can be (left) or (toFree)
-00000348:             ;     ;;right can be (right) or (toFree)
-00000348:             ;     ;;If left == right: don't merge; create new Crate
-00000348:             ;     ;;If left != right: then add to left's size
-00000348:             ; 
-00000348: E1510002    ;     cmp R1, R2
-0000034C: 0A000007    ;     beq mergeNew
-00000350:             ; 
-00000350:             ;     ;;find size of right
-00000350: E5923008    ;     ldr R3, [R2, #8]
-00000354: E283300C    ;     add R3, R3, #12 ;;R3 is the size to add to the left's size
-00000358: E5914008    ;     ldr R4, [R1, #8] ;;left's current size
-0000035C: E0833004    ;     add R3, R3, R4
-00000360: E5813008    ;     str R3, [R1, #8] ;;store back the new size
-00000364:             ; 
-00000364:             ;     ;;Time to switch some ptrs
-00000364:             ;     ;;Current state left.prev<->left<->right<->right.next (with left or right = toFree) or left
-                      ; .prev<->left<->toFree<->right<->right.next
-00000364:             ;     ;;New state would be left.prev<->left<->right.next (with left or right = toFree) or left.pr
-                      ; ev<->left<->right.next
-00000364:             ;     ;;Both cases end the same, so get right.next. These could be 0 but it doesn't matter
-00000364:             ;     ;;Next need to change the prev and next ptrs for adjacent Crates
-00000364:             ;     ;;i.e. right->next->prev = left
-00000364:             ; 
-00000364: E5924000    ;     ldr R4, [R2, #0] ;;right->next
-00000368: E5814000    ;     str R4, [R1, #0] ;;left->next = right->next
+00000334:             ; freelendEnd
+00000334:             ; ;;If there are no more Crates to the right then this could be a new Crate at the end or |F|T| i
+                      ; t should merge left 
+00000334:             ; ;;Found a crate (current) that is to the left of the crate as we ran out of ->next ptrs
+00000334:             ; ;;Need to set current->next = toFree
+00000334:             ; ;;            toFree->prev = current
+00000334: E5801004    ;     str R1, [R0, #4] ;;toFree->prev = current
+00000338: E5810000    ;     str R0, [R1, #0] ;;current->next = toFree
+0000033C:             ; 
+0000033C:             ; freeMergeCheck
+0000033C:             ;     ;;We have a ptr to current. This should be the closest Crate to the left of toFree
+0000033C:             ;     ;;We also have the next Crate (null or not) which is to the right of toFree
+0000033C:             ;     ;;Both of these crates MAY need to be merged but could also have taken crates in between
+0000033C:             ;     ;;First is to check if the crates are adjacent
+0000033C:             ;     ;;  If they are NOT then create a newCrate
+0000033C:             ;     ;;  If they are     then merge both
+0000033C:             ;     ;;  If only one     then merge either left or right
+0000033C:             ; 
+0000033C:             ;     ;;R1 will be left
+0000033C:             ;     ;;R2 will be right
+0000033C:             ; 
+0000033C: E3510000    ;     cmp R1, #0
+00000340: 01A01000    ;     moveq R1, R0 ;;If there is no left crate then left=toFree
+00000344: E3520000    ;     cmp R2, #0
+00000348: 01A02000    ;     moveq R2, R0 ;;If there is no right crate (more likely) then right=toFree
+0000034C:             ; 
+0000034C:             ; verifyLeft
+0000034C:             ;     ;;Check if the left is adjacent
+0000034C:             ;     ;;It will be if (left.addr + sizeof(Crate) + left.size == toFree.addr)
+0000034C:             ; 
+0000034C: E5913008    ;     ldr R3, [R1, #8]
+00000350: E283300C    ;     add R3, R3, #12 ;;12 is sizeof(Crate) + toFree.size
+00000354: E0833001    ;     add R3, R3, R1 ;;left.addr + left->size ??
+00000358:             ; 
+00000358: E1530000    ;     cmp R3, R0
+0000035C: 11A01000    ;     movne R1, R0
+00000360:             ; 
+00000360:             ; verifyRight
+00000360:             ;     ;;Going from toFree to Right
+00000360: E5903008    ;     ldr R3, [R0, #8] ;;get size of toFree
+00000364: E283300C    ;     add R3, R3, #12 ;;12 is sizeof(Crate) + toFree.size
+00000368: E0833000    ;     add R3, R3, R0 ;; + toFree.addr
 0000036C:             ; 
-0000036C: E5841004    ;     str R1, [R4, #4] ;;right->next->prev = left
-00000370:             ; 
-00000370:             ; mergeNew
-00000370:             ;     ;;The crate has already been setup with its ptrs and had its size as well so don't need to 
+0000036C: E1530002    ;     cmp R3, R2
+00000370: 11A02000    ;     movne R2, R0
+00000374:             ; 
+00000374:             ; merge
+00000374:             ;     ;;Merge the two Crates given in R1 and R2
+00000374:             ;     ;;left can be (left) or (toFree)
+00000374:             ;     ;;right can be (right) or (toFree)
+00000374:             ;     ;;If left == right: don't merge; create new Crate
+00000374:             ;     ;;If left != right: then add to left's size
+00000374:             ; 
+00000374: E1510002    ;     cmp R1, R2
+00000378: 0A00000A    ;     beq mergeNew
+0000037C:             ; 
+0000037C:             ;     ;;The new size is right.addr - left.addr + right->size    from right.addr - left.addr - siz
+                      ; eof(Crate) + sizeof(Crate) + right->size
+0000037C:             ;     ;;                                                               |left      |right
+0000037C:             ;     ;;                                                               |<12>|size||<12>|size|
+0000037C:             ;     ;;
+0000037C:             ;     ;;                                                               |left      
+0000037C:             ;     ;;                                                               |<12>|size           |
+0000037C:             ;     ;;
+0000037C:             ;     ;;I'm doing it this way as the left and right may not be contiguous i.e. if toFree has a fr
+                      ; ee crate on either side
+0000037C:             ; 
+0000037C: E0423001    ;     sub R3, R2, R1
+00000380: E5924008    ;     ldr R4, [R2, #8]
+00000384: E0833004    ;     add R3, R3, R4
+00000388: E5813008    ;     str R3, [R1, #8]
+0000038C:             ; 
+0000038C:             ;     ;;Time to switch some ptrs
+0000038C:             ;     ;;Current state left.prev<->left<->right<->right.next (with left or right = toFree) or left
+                      ; .prev<->left<->toFree<->right<->right.next
+0000038C:             ;     ;;New state would be left.prev<->left<->right.next (with left or right = toFree) or left.pr
+                      ; ev<->left<->right.next
+0000038C:             ;     ;;Both cases end the same, so get right.next. These could be 0 but it doesn't matter
+0000038C:             ;     ;;Next need to change the prev and next ptrs for adjacent Crates
+0000038C:             ;     ;;i.e. right->next->prev = left
+0000038C:             ; 
+0000038C: E5924000    ;     ldr R4, [R2, #0] ;;right->next
+00000390: E1540001    ;     cmp R4, R1
+00000394: 15814000    ;     strne R4, [R1, #0] ;;left->next = right->next
+00000398: 13A04000    ;     movne R4, #0
+0000039C: 15814000    ;     strne R4, [R1, #0]
+000003A0:             ; 
+000003A0: E3540000    ;     cmp R4, #0
+000003A4: 15841004    ;     strne R1, [R4, #4] ;;right->next->prev = left
+000003A8:             ; 
+000003A8:             ; mergeNew
+000003A8:             ;     ;;The crate has already been setup with its ptrs and had its size as well so don't need to 
                       ; do anything
-00000370:             ; 
-00000370:             ; freeEnd
-00000370: E8BD01F0    ;     pop {R4-R8}
-00000374: E1A0F00E    ;     mov R15, R14
-00000378:             ; 
-00000378:             ; ;;String defs
-00000378: 57 6F 75 6C ; askdefaults defb "Would you like to use the default settings? Y/n: ", 0
-0000037C: 64 20 79 6F ; 
-00000380: 75 20 6C 69 ; 
-00000384: 6B 65 20 74 ; 
-00000388: 6F 20 75 73 ; 
-0000038C: 65 20 74 68 ; 
-00000390: 65 20 64 65 ; 
-00000394: 66 61 75 6C ; 
-00000398: 74 20 73 65 ; 
-0000039C: 74 74 69 6E ; 
-000003A0: 67 73 3F 20 ; 
-000003A4: 59 2F 6E 3A ; 
-000003A8: 20 00       ; 
-000003AA: 45 6E 61 62 ; askerase    defb "Enable erase mode? Y/n: ", 0
-000003AE: 6C 65 20 65 ; 
-000003B2: 72 61 73 65 ; 
-000003B6: 20 6D 6F 64 ; 
-000003BA: 65 3F 20 59 ; 
-000003BE: 2F 6E 3A 20 ; 
-000003C2: 00          ; 
-000003C3: 45 6E 61 62 ; askslow     defb "Enable slow mode? Y/n: ", 0
-000003C7: 6C 65 20 73 ; 
-000003CB: 6C 6F 77 20 ; 
-000003CF: 6D 6F 64 65 ; 
-000003D3: 3F 20 59 2F ; 
-000003D7: 6E 3A 20 00 ; 
-000003DB: 50 6C 65 61 ; askwid      defb "Please enter a width (1-30): ", 0
-000003DF: 73 65 20 65 ; 
-000003E3: 6E 74 65 72 ; 
-000003E7: 20 61 20 77 ; 
-000003EB: 69 64 74 68 ; 
-000003EF: 20 28 31 2D ; 
-000003F3: 33 30 29 3A ; 
-000003F7: 20 00       ; 
-000003F9: 50 6C 65 61 ; askhei      defb "Please enter a height (1-30): ", 0
-000003FD: 73 65 20 65 ; 
-00000401: 6E 74 65 72 ; 
-00000405: 20 61 20 68 ; 
-00000409: 65 69 67 68 ; 
-0000040D: 74 20 28 31 ; 
-00000411: 2D 33 30 29 ; 
-00000415: 3A 20 00    ; 
-00000418:             ; 
-00000418:             ; align
-00000418:             ; ;;Integer defs
-00000418: 00010000    ; heaphead defw 0x10000 ;;default start
-0000041C:             ; 
-0000041C:             ; ;;options
-0000041C: 00          ; erase_b defb 0
-0000041D: 00          ; slow_b  defb 0
-0000041E: 12          ; width   defb 18
-0000041F: 12          ; height  defb 18
-00000420:             ; 
-00000420:             ; align
-00000420:             ; heapstart ;;points to the end of the data this is where the heap can then begin
-00000420:             ; 
-00000420:             ; Remaining literals
+000003A8:             ; 
+000003A8:             ; freeEnd
+000003A8: E8BD01F0    ;     pop {R4-R8}
+000003AC: E1A0F00E    ;     mov R15, R14
+000003B0:             ; 
+000003B0:             ; ;;String defs
+000003B0: 57 6F 75 6C ; askdefaults defb "Would you like to use the default settings? Y/n: ", 0
+000003B4: 64 20 79 6F ; 
+000003B8: 75 20 6C 69 ; 
+000003BC: 6B 65 20 74 ; 
+000003C0: 6F 20 75 73 ; 
+000003C4: 65 20 74 68 ; 
+000003C8: 65 20 64 65 ; 
+000003CC: 66 61 75 6C ; 
+000003D0: 74 20 73 65 ; 
+000003D4: 74 74 69 6E ; 
+000003D8: 67 73 3F 20 ; 
+000003DC: 59 2F 6E 3A ; 
+000003E0: 20 00       ; 
+000003E2: 45 6E 61 62 ; askerase    defb "Enable erase mode? Y/n: ", 0
+000003E6: 6C 65 20 65 ; 
+000003EA: 72 61 73 65 ; 
+000003EE: 20 6D 6F 64 ; 
+000003F2: 65 3F 20 59 ; 
+000003F6: 2F 6E 3A 20 ; 
+000003FA: 00          ; 
+000003FB: 45 6E 61 62 ; askslow     defb "Enable slow mode? Y/n: ", 0
+000003FF: 6C 65 20 73 ; 
+00000403: 6C 6F 77 20 ; 
+00000407: 6D 6F 64 65 ; 
+0000040B: 3F 20 59 2F ; 
+0000040F: 6E 3A 20 00 ; 
+00000413: 50 6C 65 61 ; askwid      defb "Please enter a width (1-30): ", 0
+00000417: 73 65 20 65 ; 
+0000041B: 6E 74 65 72 ; 
+0000041F: 20 61 20 77 ; 
+00000423: 69 64 74 68 ; 
+00000427: 20 28 31 2D ; 
+0000042B: 33 30 29 3A ; 
+0000042F: 20 00       ; 
+00000431: 50 6C 65 61 ; askhei      defb "Please enter a height (1-30): ", 0
+00000435: 73 65 20 65 ; 
+00000439: 6E 74 65 72 ; 
+0000043D: 20 61 20 68 ; 
+00000441: 65 69 67 68 ; 
+00000445: 74 20 28 31 ; 
+00000449: 2D 33 30 29 ; 
+0000044D: 3A 20 00    ; 
+00000450:             ; 
+00000450:             ; align
+00000450:             ; ;;Integer defs
+00000450: 00010000    ; heaphead defw 0x10000 ;;default start
+00000454:             ; 
+00000454:             ; ;;options
+00000454: 00          ; erase_b defb 0
+00000455: 00          ; slow_b  defb 0
+00000456: 12          ; width   defb 18
+00000457: 12          ; height  defb 18
+00000458:             ; 
+00000458:             ; align
+00000458:             ; heapstart ;;points to the end of the data this is where the heap can then begin
+00000458:             ; 
+00000458:             ; Remaining literals
 
 Symbol Table: Labels
 : max_addr                          00100000  Value
@@ -602,48 +650,49 @@ Symbol Table: Labels
 : minBuffSize                       00000008  Value
 : _start                            00000000  Local -- ARM
 : main                              00000034  Local -- ARM
-: newline                           00000080  Local -- ARM
-: memcpy                            0000008C  Local -- ARM
-: memcpywordsloop                   000000B4  Local -- ARM
-: memcpywordslend                   000000CC  Local -- ARM
-: memcpyallbytes                    000000DC  Local -- ARM
-: memcpybytes                       000000E8  Local -- ARM
-: memcpybytesloop                   000000EC  Local -- ARM
-: memcpybyteslend                   00000104  Local -- ARM
-: memcpyend                         00000108  Local -- ARM
-: getstring                         00000110  Local -- ARM
-: getstringloop                     00000134  Local -- ARM
-: getstringresize                   00000150  Local -- ARM
-: getstringlend                     0000017C  Local -- ARM
-: getstringEnd                      0000017C  Local -- ARM
-: setupOptions                      00000188  Local -- ARM
-: setupCustom                       000001AC  Local -- ARM
-: setupHeap                         000001FC  Local -- ARM
-: malloc                            00000228  Local -- ARM
-: mallignend                        00000244  Local -- ARM
-: checkcrate                        00000248  Local -- ARM
-: nocrates                          00000268  Local -- ARM
-: foundcrate                        00000270  Local -- ARM
-: splitcrate                        00000280  Local -- ARM
-: usecrate                          000002B0  Local -- ARM
-: mallocEnd                         000002C4  Local -- ARM
-: free                              000002CC  Local -- ARM
-: freeloop                          000002D4  Local -- ARM
-: freelend                          000002F0  Local -- ARM
-: freeMergeCheck                    00000310  Local -- ARM
-: verifyLeft                        00000320  Local -- ARM
-: verifyRight                       00000334  Local -- ARM
-: merge                             00000348  Local -- ARM
-: mergeNew                          00000370  Local -- ARM
-: freeEnd                           00000370  Local -- ARM
-: askdefaults                       00000378  Local -- ARM
-: askerase                          000003AA  Local -- ARM
-: askslow                           000003C3  Local -- ARM
-: askwid                            000003DB  Local -- ARM
-: askhei                            000003F9  Local -- ARM
-: heaphead                          00000418  Local -- ARM
-: erase_b                           0000041C  Local -- ARM
-: slow_b                            0000041D  Local -- ARM
-: width                             0000041E  Local -- ARM
-: height                            0000041F  Local -- ARM
-: heapstart                         00000420  Local -- ARM
+: newline                           0000009C  Local -- ARM
+: memcpy                            000000A8  Local -- ARM
+: memcpywordsloop                   000000D0  Local -- ARM
+: memcpywordslend                   000000E8  Local -- ARM
+: memcpyallbytes                    000000F8  Local -- ARM
+: memcpybytes                       00000104  Local -- ARM
+: memcpybytesloop                   00000108  Local -- ARM
+: memcpybyteslend                   00000120  Local -- ARM
+: memcpyend                         00000124  Local -- ARM
+: getstring                         0000012C  Local -- ARM
+: getstringloop                     00000150  Local -- ARM
+: getstringresize                   0000016C  Local -- ARM
+: getstringlend                     00000198  Local -- ARM
+: getstringEnd                      00000198  Local -- ARM
+: setupOptions                      000001A4  Local -- ARM
+: setupCustom                       000001C8  Local -- ARM
+: setupHeap                         00000218  Local -- ARM
+: malloc                            00000244  Local -- ARM
+: mallignend                        00000260  Local -- ARM
+: checkcrate                        00000264  Local -- ARM
+: nocrates                          00000284  Local -- ARM
+: foundcrate                        0000028C  Local -- ARM
+: splitcrate                        0000029C  Local -- ARM
+: usecrate                          000002D0  Local -- ARM
+: mallocEnd                         000002E4  Local -- ARM
+: free                              000002EC  Local -- ARM
+: freeloop                          000002F8  Local -- ARM
+: freelend                          00000314  Local -- ARM
+: freelendEnd                       00000334  Local -- ARM
+: freeMergeCheck                    0000033C  Local -- ARM
+: verifyLeft                        0000034C  Local -- ARM
+: verifyRight                       00000360  Local -- ARM
+: merge                             00000374  Local -- ARM
+: mergeNew                          000003A8  Local -- ARM
+: freeEnd                           000003A8  Local -- ARM
+: askdefaults                       000003B0  Local -- ARM
+: askerase                          000003E2  Local -- ARM
+: askslow                           000003FB  Local -- ARM
+: askwid                            00000413  Local -- ARM
+: askhei                            00000431  Local -- ARM
+: heaphead                          00000450  Local -- ARM
+: erase_b                           00000454  Local -- ARM
+: slow_b                            00000455  Local -- ARM
+: width                             00000456  Local -- ARM
+: height                            00000457  Local -- ARM
+: heapstart                         00000458  Local -- ARM
