@@ -64,25 +64,6 @@ main
 
     bl setupOptions
 
-    mov R0, #12
-    bl malloc
-
-    mov R2, #14
-    str R2, [R0]
-    mov R2, #15
-    str R2, [R0, #4]
-
-    mov R4, R0
-    mov R0, #100
-    bl malloc
-
-    bl free
-
-    mov R0, #0
-    mov R1, #-1
-    mov R2, #1
-    bl getstring
-
     swi 3
 
     pop {R14, R4-R8}
@@ -317,7 +298,7 @@ malloc
 
     and R1, R0, #0b0111
     cmp R1, #0
-    bleq mallignend
+    beq mallignend
     mov R3, #0b1000
     sub R2, R3, R1
     add R0, R0, R2
@@ -363,12 +344,14 @@ splitcrate
 
     ;;Setup the header for the newCrate
     mov R2, #0
-    str R2, [R3, #0] ;;next = 0
-    str R2, [R3, #4] ;;prev = 0
-    str R0, [R3, #8] ;;size = requested and aligned
+    str R2, [R4, #0] ;;next = 0
+    str R2, [R4, #4] ;;prev = 0
+    str R0, [R4, #8] ;;size = requested and aligned
 
     ;;MAYBE: can the crates that are taken have a smaller header than those that are free. Taken crates need not store the next, prev free nodes
     ;;This may complicate things as size would need to be moved around and the size from taken to free would be different. 
+
+    add R4, R4, #12
 
     mov R0, R4
 
@@ -415,13 +398,15 @@ free
     push {R4-R8}
 
     ldr R1, heaphead ;;R1 will hold the current
+    sub R0, R0, #12 ;;subtract sizeof(Crate) to get header pointer
 freeloop
-    cmp R0, R1 ;;compare the address of the toFree to the address of current
-    ble freelend ;;toFree.addr <= current.addr
     ldr R2, [R1, #0] ;;load the ptr to the next
+    cmp R2, R0 ;;compare the address of the toFree to the address of current->next
+
+    bge freelend ;;current->next.addr >= toFree.addr
 
     cmp R2, #0 ;;If there are no more Crates to the right then this could be a new Crate at the end or |F|T| it should merge left 
-    beq freelend
+    beq freelendEnd
 
     mov R1, R2 ;;current = current.next
 
@@ -433,14 +418,28 @@ freelend
     ldr R2, [R1, #0]
 
     ;;Setup the ptrs for the crates this will help later on   left<->toFree<->right ;;left,right can be 0
-    ldr R4, [R1, #4]    ;; R4 holds current->prev
-    cmp R4, #0
-    strne R0, [R4, #0]  ;; current->prev->next = toFree
-    str R4, [R0, #4]    ;; toFree->prev = current->prev
-    strne R0, [R4]      ;; current->prev = toFree
-    str R1, [R0, #0]    ;; toFree->next = current
+    ;;We're just adding the new crate to the linked list
+    ;;current->next->prev = toFree
+    ;;toFree->next = current->next
+    ;;current->next = toFree
+    ;;toFree->prev = current
+
+    ldr R3, [R1, #0] ;;holds current->next
+    cmp R3, #0
+    strne R0, [R3, #4] ;;current->next->prev = toFree
+    str R3, [R0, #0] ;;toFree->next = current->next
+    str R0, [R1, #0] ;;current->next = toFree
+    str R1, [R0, #4] ;;toFree->prev = current
 
     b freeMergeCheck
+
+freelendEnd
+;;If there are no more Crates to the right then this could be a new Crate at the end or |F|T| it should merge left 
+;;Found a crate (current) that is to the left of the crate as we ran out of ->next ptrs
+;;Need to set current->next = toFree
+;;            toFree->prev = current
+    str R1, [R0, #4] ;;toFree->prev = current
+    str R0, [R1, #0] ;;current->next = toFree
 
 freeMergeCheck
     ;;We have a ptr to current. This should be the closest Crate to the left of toFree
@@ -464,19 +463,19 @@ verifyLeft
     ;;It will be if (left.addr + sizeof(Crate) + left.size == toFree.addr)
 
     ldr R3, [R1, #8]
-    add R3, R3, #12 ;;12 is sizeof(Crate) + left.size
-    add R3, R3, R1 ;; + left.addr
+    add R3, R3, #12 ;;12 is sizeof(Crate) + toFree.size
+    add R3, R3, R1 ;;left.addr + left->size ??
 
     cmp R3, R0
     movne R1, R0
 
 verifyRight
-    ;;Same as left but with R2
-    ldr R3, [R2, #8]
-    add R3, R3, #12 ;;12 is sizeof(Crate) + left.size
-    add R3, R3, R2 ;; + left.addr
+    ;;Going from toFree to Right
+    ldr R3, [R0, #8] ;;get size of toFree
+    add R3, R3, #12 ;;12 is sizeof(Crate) + toFree.size
+    add R3, R3, R0 ;; + toFree.addr
 
-    cmp R3, R0
+    cmp R3, R2
     movne R2, R0
 
 merge
@@ -489,12 +488,19 @@ merge
     cmp R1, R2
     beq mergeNew
 
-    ;;find size of right
-    ldr R3, [R2, #8]
-    add R3, R3, #12 ;;R3 is the size to add to the left's size
-    ldr R4, [R1, #8] ;;left's current size
+    ;;The new size is right.addr - left.addr + right->size    from right.addr - left.addr - sizeof(Crate) + sizeof(Crate) + right->size
+    ;;                                                               |left      |right
+    ;;                                                               |<12>|size||<12>|size|
+    ;;
+    ;;                                                               |left      
+    ;;                                                               |<12>|size           |
+    ;;
+    ;;I'm doing it this way as the left and right may not be contiguous i.e. if toFree has a free crate on either side
+
+    sub R3, R2, R1
+    ldr R4, [R2, #8]
     add R3, R3, R4
-    str R3, [R1, #8] ;;store back the new size
+    str R3, [R1, #8]
 
     ;;Time to switch some ptrs
     ;;Current state left.prev<->left<->right<->right.next (with left or right = toFree) or left.prev<->left<->toFree<->right<->right.next
@@ -504,9 +510,13 @@ merge
     ;;i.e. right->next->prev = left
 
     ldr R4, [R2, #0] ;;right->next
-    str R4, [R1, #0] ;;left->next = right->next
+    cmp R4, R1
+    strne R4, [R1, #0] ;;left->next = right->next
+    movne R4, #0
+    strne R4, [R1, #0]
 
-    str R1, [R4, #4] ;;right->next->prev = left
+    cmp R4, #0
+    strne R1, [R4, #4] ;;right->next->prev = left
 
 mergeNew
     ;;The crate has already been setup with its ptrs and had its size as well so don't need to do anything
