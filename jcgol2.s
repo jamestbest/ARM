@@ -38,12 +38,16 @@ max_addr    EQU  0x100000
 stack_size  EQU  0x10000
 nlchar      EQU  10
 minBuffSize EQU  8
+enter       EQU  nlchar
 
 _start
     ;;prepare the stack
     ldr R13, =max_addr
     mov R14, #0 ;; allow for `returning` from _start
     push {R14}
+
+    ;;[[temp]] clean the heap
+    bl heapclean
 
     ;;setup heap
     adrl R0, heapstart
@@ -64,6 +68,12 @@ main
 
     bl setupOptions
 
+
+    ldr R0, =enter
+    mov R1, #-1
+    mov R2, #1
+    bl getstring
+
     swi 3
 
     pop {R14, R4-R8}
@@ -73,6 +83,23 @@ newline
     ldr R0, =nlchar
     swi 0
 
+    mov R15, R14
+
+heapclean
+;;zero out all memory in the heap (debugging uses)
+    ldr R0, =heapstart
+    ldr R1, =max_addr ;;stores the end of the heap
+    ldr R2, =stack_size
+    sub R1, R1, R2
+    and R1, R1, #-4
+    mov R3, #0
+heapcleanloop
+    cmp R0, R1
+    beq heapcleanend
+    str R3, [R0]
+    add R0, R0, #4
+    b heapcleanloop
+heapcleanend
     mov R15, R14
 
 memcpy
@@ -99,7 +126,7 @@ memcpy
     bl memcpybytes
 
     ;;Now find the number of words that can be written i.e. bytes2cpy / 4 (bytes2cpy >> 2)
-    mov R3, R2, lsr#2
+    and R3, R2, #-4 ;;the number of bytes to write that make up the words
     mov R4, #0 ;;i
 memcpywordsloop
     cmp R4, R3
@@ -108,7 +135,7 @@ memcpywordsloop
     ldr R6, [R0, R4]
     str R6, [R1, R4]
     
-    add R4, R4, #1
+    add R4, R4, #4
 
     b memcpywordsloop
     
@@ -157,8 +184,9 @@ getstring
 ;;Dynamically allocate memory to support large string
 
 ;;buff = malloc(minBytes)
-;;while (input != terminator) 
+;;while (input != terminator && pos < maxchars) 
 ;;  buff[pos] = input
+;;  putchar(input)
 ;;  if (pos > buffSize)
 ;;      nBuff = malloc(buffSize << 1)
 ;;      memcpy from buff to nBuff
@@ -169,10 +197,13 @@ getstring
 
     mov R8, R0 ;;now holds terminator
     mov R9, R1 ;;nax chars
+    cmp R9, #0
+    beq getstringEnd
+    sub R9, R9, #1 ;;reduce by 1 to use later
     mov R10, R2 ;;print bool
 
-    ldr R3, =minBuffSize ;;R3 will hold the current size of the buffer
-    mov R0, R3
+    ldr R6, =minBuffSize ;;R6 will hold the current size of the buffer
+    mov R0, R6
     bl malloc
     mov R4, R0 ;;R4 is the address of the buffer
 
@@ -182,36 +213,80 @@ getstringloop
     cmp R0, R8 ;;is input == terminator character
     beq getstringlend
 
-    str R0, [R4, R5] ;;buff[pos] = input
+    cmp R9, #-2
+    beq skipMax
 
-    cmp R5, R3
-    bgt getstringresize
+    cmp R5, R9 ;;position - maxsize
+                      ;;pos 2 means 3 characters written
+    bge getstringlend ;;if position >= maxsize - 1
+
+skipMax
+    cmp R5, R6
+    push {R0}
+    bge getstringresize
+
+getstringlcont
+    pop {R0}
+    strb R0, [R4, R5] ;;buff[pos] = input
+
+    cmp R10, #0
+    swine 0 ;;output the character to the screen if R10 is not 0
+
+    add R5, R5, #1
 
     b getstringloop
 
 getstringresize
     ;;r6 will hold new buffer
-    mov R0, R3, lsl #1
+    mov R0, R6, lsl #1
     bl malloc
-    mov R6, R0
+    mov R7, R0
 
     mov R0, R4 ;;old buff
-    mov R1, R6 ;;newBuff
+    mov R1, R7 ;;newBuff
     mov R2, R5 ;;bytes to write
     bl memcpy
 
     mov R0, R4
     bl free
-    mov R4, R6
+    mov R4, R7
 
-    b getstringloop
+    mov R6, R6, lsl #1
+
+    b getstringlcont
 
 getstringlend
+    ;;need to add a \0
+    ;;need to check if the buffer is completely full -> resize buffer to +1? (will be aligned to 8 in malloc!) then copy
+    ;;I could have the buffers always leave a space open for the \0? but this is kind of an edge case?
+    cmp R5, R6 ;;position to size of buffer
+    beq getstringResizeEnd
+
+    b getstringEnd
+
+getstringResizeEnd
+    add R0, R6, #1
+    bl malloc
+    mov R7, R0
+
+    mov R0, R4;;old buff
+    mov R1, R7;;new buff
+    mov R2, R5;;bytes2write
+    bl memcpy
+
+    mov R0, R4
+    bl free
+    mov R4, R7
+
+    add R6, R6, #1 ;;not needed
 
 getstringEnd
+    mov R0, #0
+    strb R0, [R4, R5]
+
     mov R0, R4
 
-    pop {R14, R4-R9}
+    pop {R14, R4-R10}
     mov R15, R14
 
 setupOptions
