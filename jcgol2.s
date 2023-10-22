@@ -30,10 +30,9 @@
 
 
 ;;  CURRENT ISSUES/TODOS
-;;      |-Free is looping crates, making them point at themselves
-;;      |-Have not tested getstring due to ^, prob doesn't word
-;;      `-haven't tested memcpy             --^
-
+;;  |-More testing of malloc & free need to be done
+;;  |-Think about minimising the fragmentation of the heap - find the best free block instead of the first
+;;  `-
 max_addr    EQU  0x100000
 stack_size  EQU  0x10000
 nlchar      EQU  10
@@ -68,13 +67,7 @@ main
 
     bl setupOptions
 
-
-    ldr R0, =enter
-    mov R1, #-1
-    mov R2, #1
-    bl getstring
-
-    swi 3
+    bl setupGrid
 
     pop {R14, R4-R8}
     mov R15, R14
@@ -87,19 +80,136 @@ newline
 
 heapclean
 ;;zero out all memory in the heap (debugging uses)
-    ldr R0, =heapstart
+    adrl R0, heapstart
     ldr R1, =max_addr ;;stores the end of the heap
     ldr R2, =stack_size
-    sub R1, R1, R2
-    and R1, R1, #-4
+    sub R1, R1, R2 ;; R1 = max_addr - stack_size which should be the heap end
+    and R1, R1, #-4 ;;align to 4 byte boundry just in case
     mov R3, #0
-heapcleanloop
+heapcleanloop ;;starting at heapstart
     cmp R0, R1
     beq heapcleanend
-    str R3, [R0]
-    add R0, R0, #4
+    str R3, [R0] ;;store 0 in loc
+    add R0, R0, #4 ;;inc by a word
     b heapcleanloop
 heapcleanend
+    mov R15, R14
+
+strlen
+;;INP in R0 is the address of the string
+;;OUT in R0 is the length of the null terminated string
+
+;;len = 0
+;;while(inp[len] != \0) {len++;}
+;;return len
+
+    mov R1, #0 ;;len
+    cmp R0, #0
+    beq strlenend
+
+strlenloop
+    ldrb R2, [R0, R1]
+    cmp R2, #0
+    beq strlenend
+    add R1, R1, #1
+    b strlenloop
+
+strlenend
+    mov R0, R1
+    mov R15, R14
+
+strtoi
+;;INP in R0 is the address of the string
+;;OUT in R0 is the value created
+;;OUT in R1 is the err code
+;;
+;;ERR codes
+;;  0 is success
+;;  1 is attempted -ve
+;;  2 is use of non-numeric characters
+;;  3 is value out of range of integer
+;;  4 is null string given
+
+;;  example inp
+;;  12234       len = 5
+;;      ^-find end
+;;  tot = 0
+;;  for i from end to 0:
+;;      tot += inp[i] * (10 ** (len(inp) - i - 1))
+;;  +some checks for valid input
+
+;;This will take in an address to the start of a string and attempt to convert it into an integer
+;;String is only valid when all characters are numerical
+;;For now it does not accept -ve numbers
+
+    push {R14, R4-R8}
+    mov R4, R0  ;;R4 holds the addr
+
+    cmp R0, #0
+    moveq R1, #4
+    beq strtoiendfail ;;null given so err code = 4 and end
+
+    bl strlen
+    mov R5, R0  ;;R5 holds the len of the string
+
+    cmp R5, #0
+    beq strtoiendsucc ;;if len(string) == 0 then return 0
+
+    ldrb R6, [R4, #0]
+    cmp R6, #45
+    beq strtoifailminus
+
+    mov R6, #0  ;;R6 holds the total
+    mov R7, #1  ;;R7 holds the **
+    sub R8, R5, #1  ;;R8 is i which starts at end (len - 1)
+    mov R3, #10 ;;mul to **
+
+strtoiloop
+    cmp R8, #0
+    blt strtoilend
+
+    ldrb R2, [R4, R8]
+    sub R2, R2, #48
+
+    cmp R2, #0
+    blt strtoifailnonnum
+    cmp R2, #9
+    bgt strtoifailnonnum
+
+    mla R6, R2, R7, R6 ;;total = (inp[i] * (**)) + total -> total += inp[i] * (**)
+    bvs strtoifailoutrange
+    mul R7, R7, R3
+
+    sub R8, R8, #1
+
+    b strtoiloop
+
+
+;;branches are expensive - should this just be rep RET? probably doesn't matter at this scale
+strtoilend
+    mov R0, R6
+    b strtoiendsucc
+
+strtoifailminus
+    mov R1, #1
+    b strtoiendfail
+
+strtoifailoutrange
+    mov R1, #3
+    b strtoiendfail
+
+strtoifailnonnum
+    mov R1, #2
+
+strtoiendfail
+    mov R0, #0
+    b strtoiend
+
+strtoiendsucc
+    mov R1, #0
+
+strtoiend
+    pop {R14, R4-R8}
     mov R15, R14
 
 memcpy
@@ -199,7 +309,7 @@ getstring
     mov R9, R1 ;;nax chars
     cmp R9, #0
     beq getstringEnd
-    sub R9, R9, #1 ;;reduce by 1 to use later
+    ;sub R9, R9, #1 ;;reduce by 1 to use later
     mov R10, R2 ;;print bool
 
     ldr R6, =minBuffSize ;;R6 will hold the current size of the buffer
@@ -209,17 +319,17 @@ getstring
 
     mov R5, #0 ;;R5 is the loop counter/index into buffer
 getstringloop
+    cmp R5, R9 ;;position - maxsize
+                      ;;pos 2 means 3 characters written
+    bge getstringlend ;;if position >= maxsize
+
     swi 1 ;;get input
     cmp R0, R8 ;;is input == terminator character
     beq getstringlend
 
-    cmp R9, #-2
+    cmp R9, #-1
     beq skipMax
-
-    cmp R5, R9 ;;position - maxsize
-                      ;;pos 2 means 3 characters written
-    bge getstringlend ;;if position >= maxsize - 1
-
+    
 skipMax
     cmp R5, R6
     push {R0}
@@ -289,7 +399,59 @@ getstringEnd
     pop {R14, R4-R10}
     mov R15, R14
 
+tolower
+;;INP in R0 is a character
+;;OUT in R0 is the character.lower()
+    orr R0, R0, #32
+    mov R15, R14
+
+setupGrid
+;;INP --
+;;RET in R0 the address of the 1st grid
+;;RET in R1 the address of the 2nd grid
+;; ask for generation mode
+;;      |-If random ask for seed
+;;      |   `-For generation roll the seed to create a pseudorandom value for each `pixel`
+;;      `-If draw then get them to draw the grid one `pixel` at a time
+    push {R14, R4-R8}
+
+    ;;generate the main grid
+
+
+    adrl R0, askgenoption
+    swi 3
+setupGridAsk
+    swi 1
+    orr R0, R0, #32
+
+    mov R1, R0
+    bl newline
+
+    cmp R1, #'d'
+    beq setupdrawing
+
+    cmp R1, #'r'
+    beq setuprandom
+
+    adrl R0, setupGrdFailmsg
+    swi 3
+    b setupGridAsk
+
+setuprandom
+    mov R0, #0
+    mov R1, #4
+    mov R2, #1
+    bl getstring
+
+setupdrawing
+
+setupGridEnd
+    pop {R14, R4-R8}
+    mov R15, R14
+
 setupOptions
+    push {R14}
+
     adrl R0, askdefaults ;;ask q
     swi 3
     swi 1   ;;get character answer
@@ -300,6 +462,17 @@ setupOptions
 
     bne setupCustom
 
+    adrl R0, usingDefault
+    swi 3
+
+    mov R0, #0
+    strb R0, erase_b
+    strb R0, slow_b
+    mov R0, #18
+    strb R0, width
+    strb R0, height
+
+    pop {R14}
     mov R15, R14 ;;RET
 
 setupCustom
@@ -324,6 +497,69 @@ setupCustom
     swi 0
     streqb R1, slow_b
 
+    adrl R0, askwid
+    swi 3
+    
+getwid
+    ldr R0, =enter
+    mov R1, #2
+    mov R2, #1
+    bl getstring
+
+    bl strtoi
+
+    mov R1, R0
+
+    bl newline
+
+    cmp R1, #30
+    bgt getwidFail
+    cmp R1, #0
+    ble getwidFail
+
+    strb R1, width
+
+    b getheisetup
+
+getwidFail
+    adrl R0, getwidfailmsg
+    swi 3
+
+    b getwid
+
+getheisetup
+    adrl R0, askhei
+    swi 3
+
+gethei
+    ldr R0, =enter
+    mov R1, #2
+    mov R2, #1
+    bl getstring
+
+    bl strtoi
+
+    mov R1, R0
+
+    bl newline
+
+    cmp R1, #30
+    bgt getheiFail
+    cmp R1, #0
+    ble getheiFail
+
+    strb R1, height
+
+    b customend
+
+getheiFail
+    adrl R0, getheifailmsg
+    swi 3
+
+    b gethei
+
+customend
+    pop {R14}
     mov R15, R14 ;;RET
 
 ;; The heap will be a linked list of free blocks - unlike the Comodo version which stores both free & taken blocks 
@@ -601,11 +837,17 @@ freeEnd
     mov R15, R14
 
 ;;String defs
-askdefaults defb "Would you like to use the default settings? Y/n: ", 0
-askerase    defb "Enable erase mode? Y/n: ", 0
-askslow     defb "Enable slow mode? Y/n: ", 0
-askwid      defb "Please enter a width (1-30): ", 0
-askhei      defb "Please enter a height (1-30): ", 0
+askdefaults     defb "Would you like to use the default settings? Y/n: ", 0
+askerase        defb "Enable erase mode? Y/n: ", 0
+askslow         defb "Enable slow mode? Y/n: ", 0
+askwid          defb "Please enter a width (1-30): ", 0
+askhei          defb "Please enter a height (1-30): ", 0
+getwidfailmsg   defb "Invalid width please enter a value between 1-30 inclusive: ", 0
+getheifailmsg   defb "Invalid height please enter a value between 1-30 inclusive: ", 0
+usingDefault    defb "Using default values: dims=(18, 18) slowMode=Off eraseMode=Off", 0
+askgenoption    defb "Choose between (R)andom generation or (D)rawing the grid", 0
+setupGrdFailmsg defb "Invalid choice, use `R` for random generation and `d` for drawing the grid. Not case sensative: ", 0
+askseed         defb "Enter 4 characters to be used as the seed: ", 0
 
 align
 ;;Integer defs
@@ -618,4 +860,4 @@ width   defb 18
 height  defb 18
 
 align
-heapstart ;;points to the end of the data this is where the heap can then begin
+heapstart defw 0 ;;points to the end of the data this is where the heap can then begin
