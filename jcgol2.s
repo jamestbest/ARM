@@ -2,7 +2,8 @@
 ;;  
 ;;  This will attempt to follow the ARM 32bit calling convention 
 ;;      R0-3 are argument registers, scratch
-;;      R4-11 are local variable registers and should be saved before use in a function
+;;      R4-10 are local variable registers and should be saved before use in a function
+;;      R11 - FP
 ;;      R12 - IPC
 ;;      R13 - SP
 ;;      R14 - LR
@@ -29,15 +30,30 @@
 ;;      `-goto loop
 
 
+;;SINGLE STEP mode allows you to save the current state of the board into a list, also give it a name
+;;At the main menu you can load a saved grid
+
+;;Save info struct
+;;  -address of grid [4 BYTES]
+;;  -char* to the name [4 BYTES]
+
+
 ;;  CURRENT ISSUES/TODOS
 ;;  |-More testing of malloc & free need to be done
 ;;  |-Think about minimising the fragmentation of the heap - find the best free block instead of the first
-;;  `-
+;;  |
+;;  |-Need to add the saveGrid and LoadGrids methods
+;;  |-Need to restructure the gridInfo struct - it needs the ptr to arr, maxsize, and current index - this will shift the sp offset to not n + m + 4 % 8 == 0
+;;  |-Need to copy the grid when saving to allow the current grid to be used again
+;;  `-When we're in the menu should the current grids be freed?
 max_addr    EQU  0x100000
 stack_size  EQU  0x10000
 nlchar      EQU  10
+backspace   EQU  8
 minBuffSize EQU  8
 enter       EQU  nlchar
+minSaveSize EQU  8
+sizeofSaveI EQU  8
 
 _start
     ;;prepare the stack
@@ -63,19 +79,227 @@ _start
     mov R15, R14
 
 main
-    push {R14, R4-R8}
+    push {fp, R14, R4-R10} ;;8 registers saved
 
+    add fp, sp, #28 ;;(r - 1) * 4
+    sub sp, sp, #8 ;;reserve 8bytes on the stack for the pointer to the list of saved grids + the maxSize of the array
+
+    ldr R0, =minSaveSize
+    str R0, [sp, #0]
+
+    ;;minsize * sizeof(SaveInfo)
+    ldr R1, =sizeofSaveI
+    mul R0, R0, R1
+    bl malloc ;;allocate the array on the heap
+
+    str R0, [sp, #4] ;;store the address
+
+    adrl R0, welcomemsg
+    swi 3
+
+    adrl R0, welcome2msg
+    swi 3
+
+mainchoice
+    swi 1
+    orr R0, R0, #32
+    cmp R0, #'n' ;;new board generation
+    beq newboard
+
+    cmp R0, #'l' ;;load a saved board
+    beq loadboard
+
+    cmp R0, #'q' ;;quit
+    beq mainEnd
+
+    adrl R0, mainchoicefail
+    swi 3
+
+    b mainchoice
+
+    ;;R4 will hold the active grid, R5 will hold the passive grid
+    ;;Active is used to count neighbours, passive is used to place updated values in 
+    ;;either can be drawn, just drawn in a different position
+
+newboard
+    mov R0, #1;;should get dims
     bl setupOptions
 
     bl setupGrid
+    
+    ldr R4, gridA
+    ldr R5, gridB
 
-    pop {R14, R4-R8}
+    cmp R4, #0
+    beq gridFail
+    cmp R5, #0
+    beq gridFail
+
+    b mainloopstart
+
+loadboard
+;;display the saved grids
+;;ask for the index
+;;load the grids with the saved info
+;;ask the user for the settings
+;;b to mainloopstart
+
+;;update loop
+;;    - loop
+;;      |-count neighbours
+;;      |-update inactive grid
+;;      |-swap grids
+;;      |-draw grid
+;;      |-[slow?] - slow() - loops for some time to increase waiting time
+;;      |-[step?] - step() - waits for input, s and q will have effects
+;;      |-[erase?] - erase() - \b until grid is gone
+;;      `-goto loop
+mainloopstart
+    ;;load the slow, step, and erase booleans
+    ldrb R6, slow_b
+    ldrb R7, erase_b
+    ldrb R8, step_b
+
+    ;;(width * height) * 2 + 1 + height
+    ldrb R0, width
+    ldrb R1, height
+    mul R0, R0, R1
+    mov R0, R0, lsl #1
+    add R0, R0, #1
+    add R0, R0, R1
+    mov R9, R0      ;;R9 holds the itterations for erase, so it doesn't have to calc it every time
+
+mainloop
+    mov R0, R4
+    mov R1, R5
+    bl updategrid
+
+    mov R0, R4
+    bl drawgrid
+
+    cmp R8, #1
+    bleq step
+
+    cmp R6, #1
+    bleq slow
+
+    cmp R7, #1
+    moveq R0, R9
+    bleq erase
+
+    mov R0, R4
+    mov R4, R5
+    mov R5, R0 ;;SWAP the active and passive
+
+    b mainloop
+
+gridFail
+    adrl R0, gridfailmsg
+    swi 3
+
+mainEnd
+    ;;need to free all of the memory, saved grids (grids + names) + current grids
+
+    sub sp, fp, #24 ;;???
+    pop {R14, R4-R10}
     mov R15, R14
 
 newline
     ldr R0, =nlchar
     swi 0
 
+    mov R15, R14
+
+step
+;;INP --
+;;OUT in R0 is 1 if should return to main menu, else 0
+
+;;get user input
+;;if q -> jump to main menu
+;;if s -> ask for name, bl saveGrid with name
+    push {R14, R4-R8}
+
+    swi 1
+
+    cmp R0, #'q'
+    beq stependfail ;;bad name, shame I can't change it eh
+
+    cmp R0, #'s'
+    bne stependsucc
+
+    adrl R0, askname
+    swi 3
+
+    ldr R0, =enter
+    mov R1, #-1
+    mov R2, #1
+    bl getstring
+
+    bl saveGrid
+
+    adrl R0, savedchoice
+    swi 3
+
+    cmp R0, #'Y'
+    beq stependfail
+    b stependsucc
+
+stependfail
+    mov R0, #1
+    b stepend
+
+stependsucc
+    mov R0, #0
+
+stepend
+    pop {R14, R4-R8}
+    mov R15, R14
+
+saveGrid
+;;INP in R0 is the ptr gridInfo struct (in the main's stackframe)
+;;INP in R1 is the char* to the name
+;;RET --
+
+;;if reachedCap -> realloc + inc maxsize
+;;copy the current grid to another loc and place info in gridArr
+;;inc current index
+
+erase
+;;INP in R0 is the itters
+;;for (width * height + 1) * 2 + 1
+;;      print('\b')
+    mov R1, R0
+
+eraseloop
+    cmp R1, #0
+    beq eraseend
+
+    ldr R0, =backspace
+    swi 0
+
+    sub R1, R1, #1
+    b eraseloop
+
+eraseend
+    mov R15, R14
+
+slow
+    mov R1, #0xFF
+    mov R1, R1, lsl #1
+
+slowloop
+    cmp R1, #0
+    beq slowend
+
+    mov R0, #' '
+    swi 0
+    ldr R0, =backspace
+    swi 0
+
+    sub R1, R1, #1
+    b slowloop
+
+slowend
     mov R15, R14
 
 heapclean
@@ -94,6 +318,7 @@ heapcleanloop ;;starting at heapstart
     b heapcleanloop
 heapcleanend
     mov R15, R14
+
 
 strlen
 ;;INP in R0 is the address of the string
@@ -407,16 +632,37 @@ tolower
 
 setupGrid
 ;;INP --
-;;RET in R0 the address of the 1st grid
-;;RET in R1 the address of the 2nd grid
+;;RET --
+;;The values addresses of the grids will now be set, can still be 0
 ;; ask for generation mode
 ;;      |-If random ask for seed
 ;;      |   `-For generation roll the seed to create a pseudorandom value for each `pixel`
 ;;      `-If draw then get them to draw the grid one `pixel` at a time
-    push {R14, R4-R8}
+    push {R14, R4-R10}
 
     ;;generate the main grid
+    ldrb R6, width
+    ldrb R7, height
 
+    mul R0, R6, R7 ;;width * height = num of bytes to malloc
+
+    mov R5, R0
+    bl malloc
+    mov R4, R0
+    str R4, gridA
+
+    mov R0, R5
+    bl malloc
+    str R0, gridB
+
+    cmp R5, #0
+    beq setupGridFail
+    cmp R4, #0
+    beq setupGridFail
+
+    ;;R4 holds the gridA addr
+    ;;R6 holds the width
+    ;;R7 holds the height
 
     adrl R0, askgenoption
     swi 3
@@ -437,20 +683,161 @@ setupGridAsk
     swi 3
     b setupGridAsk
 
+setupdrawing
+    mov R9, #0
+    b setupstart
+
 setuprandom
     mov R0, #0
     mov R1, #4
     mov R2, #1
     bl getstring
 
-setupdrawing
+    mov R8, R0
 
+    bl newline
+
+    mov R9, #1
+
+setupstart
+;;This is probably not a good way to do it as there is more branching in the middle of a loop that is executed alot
+;;I'm doing it this way `not because it is easy, but because I though it would be easy`
+;;Reduces the need for writing another loop :)
+;;R9 holds the mode (1 for random, 0 for draw)
+;;R8 will hold the seed for random
+;;for row from 0 to height - 1
+;;  for col from 0 to width - 1
+;;      if (random)
+;;          grid[row][col] = ((seed rol 1) || row) && 1
+;;      else
+;;          grid[row][col] = input() == 1
+    mov R5, #0 ;; row
+setuprowloop
+    cmp R5, R7
+    beq setuprowlend
+
+    mov R10, #0 ;;col
+setupcolloop
+    cmp R10, R6
+    beq setupcollend
+
+    cmp R9, #1
+    beq dorandom
+    b dodraw
+
+;;dorandom and dodraw will get their value for this position and then place it in R2
+;;R3 is free at this point
+dorandom
+    ;;seed in R8
+    mov R8, R8, ror #1
+    and R3, R10, R5
+    eor R8, R8, R3
+    and R2, R8, #1
+    b setupcollcont
+dodraw
+    ;;get input, validate 1 or 0
+    ;;if invalid print error loop back
+    ;;-_- I've just realised I want to print the grid each time as well R0-R3 are scratch
+    swi 1
+
+    cmp R0, #'1'
+    beq dodrawsucc
+    cmp R0, #'0'
+    beq dodrawsucc
+
+    adrl R0, drawfailmsg
+    swi 3
+
+    b dodraw
+
+dodrawsucc
+    sub R2, R0, #48 ;;could be xor?
+
+setupcollcont
+    ;;place the value in R2 into the grid[row][col]
+    ;;row * width + col
+
+    mla R3, R5, R6, R10 ;;R3 = row * width + col
+    strb R2, [R4, R3] ;;grid offset by R3
+
+    cmp R9, #0
+    moveq R0, R4
+    bleq drawgrid ;;print the new state of the grid if this is drawing mode
+
+    add R10, R10, #1
+    b setupcolloop
+setupcollend
+    add R5, R5, #1
+    b setuprowloop
+setuprowlend
+    ;;grid has been setup
+
+setupGridFail
 setupGridEnd
-    pop {R14, R4-R8}
+    pop {R14, R4-R10}
     mov R15, R14
 
+
+;;[[TODO]] the heap may not be blank (when heapclean is removed) and so need to 0 the mem. Maybe add option to malloc or add calloc (not the same)
+drawgrid
+;;INP in R0 is the grid address to draw
+
+;;for row from 0 to height - 1
+;;  for col from 0 to width - 1
+;;      print('X' if grid[row][col] else '_')
+;;  print(newline)
+;;print(newline)
+    push {R4-R8}
+
+    mov R6, R0
+
+    ldrb R4, width
+    ldrb R5, height
+
+    mov R2, #0 ;;row
+drawgridrowloop
+    cmp R2, R5
+    beq drawgridrowlend
+
+    mov R1, #0 ;;col
+drawgridcolloop
+    cmp R1, R4
+    beq drawgridcollend
+
+    mla R3, R2, R4, R1 ;;R3 = row * width + col
+    ldrb R3, [R6, R3]
+
+    cmp R3, #1
+    moveq R0, #'X'
+    movne R0, #'-'
+
+    swi 0
+
+    mov R0, #' '
+    swi 0
+
+    add R1, R1, #1
+    b drawgridcolloop
+
+drawgridcollend
+    mov R1, #0
+    add R2, R2, #1
+    mov R0, #10
+    swi 0
+    b drawgridrowloop
+
+drawgridrowlend
+    mov R0, #10
+    swi 0
+drawgridend
+    pop {R4-R8}
+    mov R15, R14
+
+
 setupOptions
-    push {R14}
+;;INP in R0 is 1 if should ask for dims 0 for skip
+    push {R14, R4}
+    mov R4, R0
 
     adrl R0, askdefaults ;;ask q
     swi 3
@@ -472,11 +859,31 @@ setupOptions
     strb R0, width
     strb R0, height
 
-    pop {R14}
+    pop {R14, R4}
     mov R15, R14 ;;RET
 
 setupCustom
-;;ask for erase, slow, dims
+;;ask for erase, slow, step, and conditionally dims
+
+;;ask step
+;;ask erase
+;;if (!step)
+;;  if erase
+;;      print(recommend slow)
+;;  ask slow
+
+    mov R1, #1
+
+    adrl R0, askstep
+    swi 3
+    swi 1
+    swi 0 
+    cmp R0, #'Y' 
+    ldr R0, =nlchar
+    swi 0
+    movne R1, #0
+    strb R1, step_b
+
     mov R1, #1
 
     adrl R0, askerase
@@ -486,7 +893,18 @@ setupCustom
     cmp R0, #'Y'
     ldr R0, =nlchar
     swi 0
-    streqb R1, erase_b
+    movne R1, #0
+    strb R1, erase_b
+
+    ldrb R0, step_b
+    cmp R0, #1
+    beq setupCustomskipslow
+
+    cmp R1, #1 ;;if erase is on
+    adrl R0, warneraseslow
+    swieq 3
+
+    mov R1, #1
  
     adrl R0, askslow
     swi 3
@@ -495,7 +913,18 @@ setupCustom
     cmp R0, #'Y' 
     ldr R0, =nlchar
     swi 0
-    streqb R1, slow_b
+    movne R1, #0
+    strb R1, slow_b
+
+    b setupCustomDimsCheck
+
+setupCustomskipslow
+    mov R0, #0
+    strb R0, slow_b
+
+setupCustomDimsCheck
+    cmp R4, #0
+    beq customend
 
     adrl R0, askwid
     swi 3
@@ -559,8 +988,181 @@ getheiFail
     b gethei
 
 customend
-    pop {R14}
+    pop {R14, R4}
     mov R15, R14 ;;RET
+
+
+updategrid
+;;INP in R0 is the active grid
+;;INP in R1 is the passive grid
+;;passive grid is the one being updated based on the value in the activeGrid
+;;RET --
+;;for row from 0 to height - 1
+;;  for col from 0 to width - 1
+;;      int n = countNeighbours(activeGrid, row, col)
+;;      int s = activeGrid[row][col]
+;;      
+;;      if (s == alive)
+;;          passiveGrid[row][col] = n == 3 or n == 2
+;;      else
+;;          passiveGrid[row][col] = n == 3
+
+;;  R4 holds the row
+;;  R5 holds the col
+;;  R6 holds the width
+;;  R7 holds the height
+;;  R8 holds the active grid
+;;  R9 holds the passive grid
+
+    push {R14, R4-R10}
+
+    ldrb R6, width
+    ldrb R7, height
+
+    mov R8, R0
+    mov R9, R1
+
+    mov R4, #0 ;;row
+updategridrowloop
+    cmp R4, R7
+    beq updategridrowlend
+
+    mov R5, #0 ;;col
+updategridcolloop
+    cmp R5, R6
+    beq updategridccollend
+
+    mov R0, R8
+    mov R1, R4
+    mov R2, R5
+    bl countneighbours
+
+    mla R1, R4, R6, R5 ;;R1 = row * width + col
+    ldrb R2, [R8, R1] ;;grid[R1]
+    ;;R0 holds the n count
+    cmp R2, #0
+    beq updatedead
+
+updatealive
+    mov R3, #0
+    cmp R0, #3
+    moveq R3, #1
+    cmp R0, #2
+    moveq R3, #1
+    strb R3, [R9, R1]
+    b updatelcont
+
+updatedead
+    mov R3, #1
+    cmp R0, #3
+    movne R3, #0
+    strb R3, [R9, R1]
+
+updatelcont
+    add R5, R5, #1
+    b updategridcolloop
+
+updategridccollend
+    mov R5, #0
+    add R4, R4, #1
+    b updategridrowloop
+
+updategridrowlend
+updategridend
+    pop {R14, R4-R10}
+    mov R15, R14
+
+
+countneighbours
+;;INP in R0 is the activeGrid
+;;INP in R1 is the row
+;;INP in R2 is the col
+;;OUT in R0 is the number of neighbours
+
+;;offsets = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]]
+;;tot = 0
+;;for offset in offsets
+;;  if (isinrange(row + offset[0], col + offset[1]))
+;;      tot += grid[row + offset[0]][col + offset[1]]
+;;return tot
+    push {R14, R4-R11} ;;I used the fp before I knew it wasn't a general purpose one, its fine in this context anyway
+
+    adrl R4, offsets ;;holds the offset
+
+    mov R7, R0
+    mov R8, R1
+    mov R9, R2
+    mov R10, #0 ;;R10 holds the total
+    ldrb R11, width;;R11 holds the width of the grid
+
+    mov R3, #0
+
+countneighboursloop
+    cmp R3, #8 ;;change this ccheck to be for R4
+    beq countneighbourslend
+
+    ldr R5, [R4], #4
+    ldr R6, [R4], #4
+
+    add R0, R8, R5
+    add R1, R9, R6
+
+    add R3, R3, #1
+
+    push {R3} ;;I should probably be using a local var on the stack, but I don't yet know how to setup a stack frame properly
+    bl isinrange
+    pop {R3}
+
+    cmp R0, #0
+    beq countneighboursskipadd
+
+    add R0, R8, R5 ;;new row
+    add R1, R9, R6 ;;new col ;;can assume that R0, R1 haven't changed as isinrange doesn't edit them, but I'm going to for now
+
+    mla R0, R0, R11, R1 ;;find offset
+    ldrb R0, [R7, R0]
+    add R10, R10, R0 ;;tot += grid[newrow][newcol]
+
+countneighboursskipadd
+    b countneighboursloop
+
+countneighbourslend
+countneighboursend
+    mov R0, R10
+    pop {R14, R4-R11}
+    mov R15, R14
+
+
+isinrange
+;;INP in R0 is the row
+;;INP in R1 is the col
+;;Uses defined width and height
+;;RET in R0 is 1 if is in range else 0
+    mov R2, #1 ;;is valid unless...
+
+    cmp R0, #0
+    blt isinrangefail
+
+    cmp R1, #0
+    blt isinrangefail
+
+    ldrb R3, width
+    cmp R1, R3
+    bge isinrangefail
+
+    ldrb R3, height
+    cmp R0, R3
+    bge isinrangefail
+
+    mov R0, #1
+    b isinrangeend
+
+isinrangefail
+    mov R0, #0
+
+isinrangeend
+    mov R15, R14
+
 
 ;; The heap will be a linked list of free blocks - unlike the Comodo version which stores both free & taken blocks 
 ;; This is an idea I'm stealing from the C programming book
@@ -836,28 +1438,47 @@ freeEnd
     pop {R4-R8}
     mov R15, R14
 
+align
+;;Integer defs
+heaphead        defw 0x10000 ;;default start changed to addr of heapstart
+offsets         defw -1,-1,-1,0,-1,1,0,-1,0,1,1,-1,1,0,1,1 ;;[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]]
+
+;;Grid addresses
+gridA           defw 0
+gridB           defw 0
+
+;;options
+erase_b         defb 0
+slow_b          defb 0
+step_b          defb 0
+width           defb 18
+height          defb 18
+
 ;;String defs
+welcomemsg      defb "-----------Welcome to JCGOL in ARM32-----------\n", 0
+welcome2msg     defb "To start a new board press n\nTo load a saved board press l\nTo quit press q\n", 0
+mainchoicefail  defb "Invalid choice please enter 'n' for new board or 'l' for load a board or 'q' to close. Not cases sensative\n", 0
+helpmsg         defb "Slow mode will create a pause between each grid print to make it more readable - can't use with step mode\nErase mode will erase the previous board before printing the next - [is 2x slower]\n", 0
+help2msg        defb "Single step mode will prompt for input each time a grid is drawn, you can (s)ave the current state or (q)uit to menu", 0
 askdefaults     defb "Would you like to use the default settings? Y/n: ", 0
 askerase        defb "Enable erase mode? Y/n: ", 0
 askslow         defb "Enable slow mode? Y/n: ", 0
+askstep         defb "Enable step mode? Y/n: ", 0
+stepslowwarning defb "Cannot have slow and step mode active at the same time, disabling slow mode\n", 0
+savedchoice     defb "Return to menu? (n for continue sim) Y/n: ", 0
+askname         defb "Please enter a name for the grid: ", 0
+warneraseslow   defb "Erase mode is active it is recommended to also use slow mode\n", 0
 askwid          defb "Please enter a width (1-30): ", 0
 askhei          defb "Please enter a height (1-30): ", 0
 getwidfailmsg   defb "Invalid width please enter a value between 1-30 inclusive: ", 0
 getheifailmsg   defb "Invalid height please enter a value between 1-30 inclusive: ", 0
-usingDefault    defb "Using default values: dims=(18, 18) slowMode=Off eraseMode=Off", 0
+usingDefault    defb "Using default values: dims=(18, 18) slowMode=Off eraseMode=Off stepMode=Off", nlchar, 0
 askgenoption    defb "Choose between (R)andom generation or (D)rawing the grid", 0
 setupGrdFailmsg defb "Invalid choice, use `R` for random generation and `d` for drawing the grid. Not case sensative: ", 0
 askseed         defb "Enter 4 characters to be used as the seed: ", 0
+drawfailmsg     defb "Invalid input please enter 1 or 0: ", nlchar, 0
+gridfailmsg     defb "Grid was not properly initialised, consider smaller dims", nlchar, 0
+
 
 align
-;;Integer defs
-heaphead defw 0x10000 ;;default start
-
-;;options
-erase_b defb 0
-slow_b  defb 0
-width   defb 18
-height  defb 18
-
-align
-heapstart defw 0 ;;points to the end of the data this is where the heap can then begin
+heapstart       defw 0 ;;points to the end of the data this is where the heap can then begin
