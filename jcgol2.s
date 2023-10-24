@@ -181,6 +181,9 @@ loadboardaskindex
     bl getstring
     mov R5, R0
 
+    bl newline
+
+    mov R0, R5
     bl strtoi
     mov R6, R0
     mov R7, R1
@@ -254,6 +257,30 @@ loadboardmain
     bl free
 
     str R8, gridA
+
+    ;;also need to check if the old gridB is big enough
+    ldrb R8, width
+    ldrb R10, height
+    cmp R6, R8
+    bne loadboardmallocB
+    cmp R7, R10
+    bne loadboardmallocB
+
+    b loadboardskipB
+
+loadboardmallocB
+    ldr R0, gridB
+    bl free
+
+    mov R0, R9
+    bl malloc
+
+    cmp R0, #0
+    beq loadboardmallocfail
+
+    str R0, gridB
+
+loadboardskipB
     strb R6, width
     strb R7, height ;;overwrite the active grid information
 
@@ -327,6 +354,7 @@ mainloop
     cmp R0, #0
     beq mainloopskipstep
     
+    ;;If R0 is #1 then free and go to the main menu
     ;;free the current grid
     ldr R0, gridA
     bl free
@@ -372,7 +400,7 @@ newline
 step
 ;;INP in R0 is the gridHeaderStruct ptr [[todo]]
 ;;INP in R1 is the active grid ptr
-;;OUT in R0 is 1 if should return to main menu, else 0
+;;OUT in R0 is 1 if should return to main menu, else 0.
 
 ;;get user input
 ;;if q -> jump to main menu
@@ -402,10 +430,18 @@ step
     mov R2, R5 ;;active grid
     bl saveGrid
 
+    bl newline
+
     adrl R0, savedchoice
     swi 3
 
+    swi 1
+    swi 0
     cmp R0, #'Y'
+
+    ldr R0, =nl
+    swi 0
+
     beq stependfail
     b stependsucc
 
@@ -459,9 +495,6 @@ listGridsLoop
 
     mov R0, #':'
     swi 0
-
-    adrl R0, gridloadpname
-    swi 3
 
     mov R0, R6
     swi 3
