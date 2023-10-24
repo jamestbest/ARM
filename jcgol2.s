@@ -33,9 +33,16 @@
 ;;SINGLE STEP mode allows you to save the current state of the board into a list, also give it a name
 ;;At the main menu you can load a saved grid
 
+;;Grid info struct
+;;  - SaveInfoStruct* array
+;;  - int max size of arr
+;;  - int current position in arr
+
 ;;Save info struct
 ;;  -address of grid [4 BYTES]
 ;;  -char* to the name [4 BYTES]
+;;  -width of grid (1 BYTE)
+;;  -height of grid (1 BYTE)
 
 
 ;;  CURRENT ISSUES/TODOS
@@ -48,12 +55,12 @@
 ;;  `-When we're in the menu should the current grids be freed?
 max_addr    EQU  0x100000
 stack_size  EQU  0x10000
-nlchar      EQU  10
+nl      EQU  10
 backspace   EQU  8
 minBuffSize EQU  8
-enter       EQU  nlchar
+enter       EQU  nl
 minSaveSize EQU  8
-sizeofSaveI EQU  8
+sizeofSaveI EQU  12 ;;10 bytes + 2 bytes of padding
 
 _start
     ;;prepare the stack
@@ -82,18 +89,25 @@ main
     push {fp, R14, R4-R10} ;;8 registers saved
 
     add fp, sp, #28 ;;(r - 1) * 4
-    sub sp, sp, #8 ;;reserve 8bytes on the stack for the pointer to the list of saved grids + the maxSize of the array
+    sub sp, sp, #16 ;;reserve 12 bytes (4 bytes to align?) on the stack for the pointer to the list of saved grids + the maxSize of the array
 
+    ;;The gridInfo struct
+    ;;set the current position of the pointer
+    mov R0, #0
+    str R0, [sp, #8]
+
+    ;;set the number of elements(save info structs) that can be stored in the array at the moment
     ldr R0, =minSaveSize
-    str R0, [sp, #0]
+    str R0, [sp, #4]
 
-    ;;minsize * sizeof(SaveInfo)
+    ;;minsize * sizeof(SaveInfo) = number of bytes needed for the array
     ldr R1, =sizeofSaveI
     mul R0, R0, R1
     bl malloc ;;allocate the array on the heap
 
-    str R0, [sp, #4] ;;store the address
+    str R0, [sp, #0] ;;store the address
 
+mainmenu
     adrl R0, welcomemsg
     swi 3
 
@@ -103,13 +117,16 @@ main
 mainchoice
     swi 1
     orr R0, R0, #32
-    cmp R0, #'n' ;;new board generation
+    mov R4, R0
+
+    cmp R4, #'n' ;;new board generation
     beq newboard
 
-    cmp R0, #'l' ;;load a saved board
+    cmp R4, #'l' ;;load a saved board
+    mov R0, sp ;;load the info ptr
     beq loadboard
 
-    cmp R0, #'q' ;;quit
+    cmp R4, #'q' ;;quit
     beq mainEnd
 
     adrl R0, mainchoicefail
@@ -138,11 +155,132 @@ newboard
     b mainloopstart
 
 loadboard
+;;INP in R0 is the ptr to the SaveInfoHeader struct i.e. ptr to arr, current pos, max size
+;;RET in R0 0 for success in which case go to main loop, n/0 for err in which case return to main menu
 ;;display the saved grids
 ;;ask for the index
 ;;load the grids with the saved info
 ;;ask the user for the settings
-;;b to mainloopstart
+    mov R4, R0 ;;save the struct ptr
+
+    ;;pass ptr to listgrids
+    bl listGrids
+
+    ldr R0, [R4, #8] ;;get the current position
+    cmp R0, #0
+    beq loadboardempty
+
+loadboardaskindex
+    ;;The grid has now been printed out we need to get the index to load
+    adrl R0, loadboardaski
+    swi 3
+
+    ldr R0, =enter
+    mov R1, #-1
+    mov R2, #1
+    bl getstring
+    mov R5, R0
+
+    bl strtoi
+    mov R6, R0
+    mov R7, R1
+    ;;ERR codes
+    ;;  0 is success
+    ;;  1 is attempted -ve
+    ;;  2 is use of non-numeric characters
+    ;;  3 is value out of range of integer
+    ;;  4 is null string given
+
+    mov R0, R5
+    bl free
+
+    mov R0, R6
+    mov R1, R7
+
+    cmp R1, #1
+    beq loadboardret
+
+    cmp R1, #0
+    beq loadboardindex
+
+    adrl R0, loadboardifail
+    swi 3
+
+    b loadboardaskindex
+
+loadboardindex
+;;we now have an index lets check if its in range and then load the board
+    ;;should be +ve so don't need to check < 0
+    ldr R1, [R4, #8] ;;get the current position, this is where things get added so index < currentposition
+    cmp R0, R1
+    blt loadboardmain
+
+    adrl R0, loadboardirerr
+    swi 3
+    b loadboardaskindex
+
+loadboardmain
+;;now we know that the index is valid we can load the grid
+;;
+;;need to free current grid
+;;need to create a copy of the snapshot and set gridA to it 
+;;return to main menu
+    ldr R1, [R4, #0] ;;get the array of grids
+    ldr R2, =sizeofSaveI
+    mla R0, R0, R2, R1 ;;R0 = index * sizeofSaveI + grid.addr
+
+    ldr R5, [R0, #0] ;;get the address of that grid
+    ldrb R6, [R0, #8] ;;get the width
+    ldrb R7, [R0, #9] ;;get the height
+
+    mul R0, R6, R7 ;;get the required size
+    mov R9, R0 ;;save the number of bytes
+
+    bl malloc
+
+    cmp R0, #0
+    beq loadboardmallocfail
+
+    mov R8, R0 ;;save the new grid arr
+
+    ;;need to copy the saved grid into the new grid
+
+    mov R0, R5  ;;src is the saved grid
+    mov R1, R8  ;;dst is the new grid
+    mov R2, R9  ;;bytes is in R9 already from width and height
+    bl memcpy
+
+    ldr R0, gridA
+    bl free
+
+    str R8, gridA
+    strb R6, width
+    strb R7, height ;;overwrite the active grid information
+
+    adrl R0, loadboardsucmsg
+    swi 3
+
+    mov R0, #0 ;;skip asking dims as they've been loaded
+    bl setupOptions
+
+    b loadboardsucc
+
+loadboardmallocfail
+    adrl R0, loadboardmlcerr
+    swi 3
+
+    b loadboarderr
+
+loadboardret
+    adrl R0, loadboardretmsg
+    swi 3
+
+loadboardempty
+loadboarderr
+    b mainmenu
+loadboardsucc
+    b mainloopstart
+
 
 ;;update loop
 ;;    - loop
@@ -159,6 +297,9 @@ mainloopstart
     ldrb R6, slow_b
     ldrb R7, erase_b
     ldrb R8, step_b
+
+    ldr R4, gridA
+    ldr R5, gridB
 
     ;;(width * height) * 2 + 1 + height
     ldrb R0, width
@@ -178,8 +319,23 @@ mainloop
     bl drawgrid
 
     cmp R8, #1
-    bleq step
+    bne mainloopskipstep
 
+    mov R0, sp
+    mov R1, R4 ;;give the active grid
+    bl step
+    cmp R0, #0
+    beq mainloopskipstep
+    
+    ;;free the current grid
+    ldr R0, gridA
+    bl free
+    ldr R0, gridB
+    bl free
+
+    b mainmenu
+
+mainloopskipstep
     cmp R6, #1
     bleq slow
 
@@ -200,24 +356,30 @@ gridFail
 mainEnd
     ;;need to free all of the memory, saved grids (grids + names) + current grids
 
+    adrl R0, mainendmsg
+    swi 3
+
     sub sp, fp, #24 ;;???
     pop {R14, R4-R10}
     mov R15, R14
 
 newline
-    ldr R0, =nlchar
+    ldr R0, =nl
     swi 0
 
     mov R15, R14
 
 step
-;;INP --
+;;INP in R0 is the gridHeaderStruct ptr [[todo]]
+;;INP in R1 is the active grid ptr
 ;;OUT in R0 is 1 if should return to main menu, else 0
 
 ;;get user input
 ;;if q -> jump to main menu
 ;;if s -> ask for name, bl saveGrid with name
     push {R14, R4-R8}
+    mov R4, R0 ;;save the struct 
+    mov R5, R1
 
     swi 1
 
@@ -235,6 +397,9 @@ step
     mov R2, #1
     bl getstring
 
+    mov R1, R0 ;;char* name
+    mov R0, R4 ;;gridinfo* 
+    mov R2, R5 ;;active grid
     bl saveGrid
 
     adrl R0, savedchoice
@@ -255,14 +420,193 @@ stepend
     pop {R14, R4-R8}
     mov R15, R14
 
+listGrids
+;;INP in R0 is the ptr to the gridInfo struct
+;;RET --
+;;Grid info struct
+;;  - SaveInfoStruct* array
+;;  - int max size of arr
+;;  - int current position in arr
+
+;;loops through the array of grids (if any) printing their names, and dims, ask to print grid
+    push {R14, R4-R10}
+
+    ldr R4, [R0, #0] ;;get the array ptr
+    ldr R5, [R0, #8] ;;current position
+
+    cmp R5, #0
+    beq listGridsEmpty
+
+;;if current position == 1: print("There are no saved grids")
+;;for i from 0 to current position
+;;  getname(4)
+;;  getwidth(8)
+;;  getheight(9)
+;;  print("There is a grid called %s with dims (%d, %d)")
+    mov R1, #0 ;;i
+    ldr R2, =sizeofSaveI
+listGridsLoop
+    cmp R1, R5
+    beq listGridsLend
+
+    mla R3, R1, R2, R4 ;;R3 = i * sizeof(saveInfo) + array
+    ldr R6, [R3, #4] ;;load the name ptr
+    ldrb R7, [R3, #8] ;;load the width
+    ldrb R8, [R3, #9] ;;load the height
+
+    mov R0, R1
+    swi 4
+
+    mov R0, #':'
+    swi 0
+
+    adrl R0, gridloadpname
+    swi 3
+
+    mov R0, R6
+    swi 3
+
+    bl newline
+
+    adrl R0, gridloadpwidth
+    swi 3
+
+    mov R0, R7
+    swi 4
+
+    bl newline
+
+    adrl R0, gridloadpheight
+    swi 3
+
+    mov R0, R8
+    swi 4
+
+    bl newline
+
+    ;;[[Prob]  Printing the grid uses the stored width and height, I could change it to use a passed in
+    ;;             version but do the other areas have enough registers to cope? probably not.
+    ;;             Would have to swap the width and height with the loaded versions - I really don't like this idea
+
+    add R1, R1, #1
+
+    b listGridsLoop
+
+listGridsEmpty
+    adrl R0, gridloadempty
+    swi 3
+
+listGridsLend
+listGridsEnd
+    pop {R14, R4-R10}
+    mov R15, R14
+
 saveGrid
 ;;INP in R0 is the ptr gridInfo struct (in the main's stackframe)
 ;;INP in R1 is the char* to the name
-;;RET --
+;;INP in R2 is the active grid
+;;RET in R0 is an errcode or 0 for success. 1 for malloc error
 
 ;;if reachedCap -> realloc + inc maxsize
 ;;copy the current grid to another loc and place info in gridArr
 ;;inc current index
+    push {R14, R4-R10}
+
+    mov R4, R0
+    mov R5, R1
+    mov R10, R2
+
+    ldr R2, [R4, #8] ;;get the current index
+    ldr R3, [R4, #4] ;;get the maxsize
+
+    cmp R2, R3
+    beq saveGridResize
+    b saveGridAdd
+
+saveGridResize
+    ;;maxsize in R3
+    mov R6, R3, lsl #1 ;;double the capacity
+    ldr R7, =sizeofSaveI
+    mul R7, R6, R7 ;;get the number of bytes
+
+    mov R0, R7
+    bl malloc ;;get the new grid
+
+    cmp R0, #0 ;;if malloc failed then don't do any saving
+    beq saveGridFailMalloc
+
+    mov R1, R0
+    mov R8, R0 ;;save of ptr
+
+    ;;now that we have the new grid we need to memcpy the bytes from the original into the new one
+    ldr R0, [R4, #0] ;;get the array ptr
+    ;;R1 has the malloced address
+    mov R2, R7, lsr #1 ;;not great, this is the double cap halfed, means no mul again
+    bl memcpy
+
+    ;;assume success because I didn't give memcpy an err code :)
+    ;;need to store the new size and arr ptr in the gridinfo struct
+
+    str R8, [R4, #0]
+    str R6, [R4, #4]
+
+saveGridAdd
+;;add the current grid to the array
+    ldr R6, [R4, #0] ;;get the arr ptr
+    ldr R7, [R4, #8] ;;get current index
+
+    ;;ptr is 4 bytes
+    ;;we're adding the struct of 
+    ;;  |-grid*     (ptr)
+    ;;  |-char*     (ptr)
+    ;;  |-width     (byte)
+    ;;  `-height    (byte)
+
+    ;;we need to copy the current array
+    ldrb R8, width
+    ldrb R9, height
+    mul R8, R8, R9 ;;get the number of bytes in grid
+
+    mov R0, R8
+    bl malloc ;;allocate a new grid
+
+    cmp R0, #0
+    beq saveGridFailMalloc
+
+    push {R8} ;; :(
+
+    ldr R8, =sizeofSaveI
+    mla R6, R7, R8, R6 ;;currentindex * sizeof(Gridinfo) + arrptr
+    str R0, [R6, #0] ;;store the grid*
+    str R5, [R6, #4] ;;store the char*
+    ldrb R8, width
+    strb R8, [R6, #8]
+    strb R9, [R6, #9]
+
+    pop {R8}
+
+    mov R1, R0 ;;dst
+    mov R0, R10 ;;src
+    mov R2, R8 ;;num bytes
+    bl memcpy ;;copy the grid into the new location
+
+    ;;inc the position
+    ldr R0, [R4, #8]
+    add R0, R0, #1
+    str R0, [R4, #8]
+
+    b saveGridSucc
+
+saveGridFailMalloc
+    mov R0, #1
+    b saveGridEnd
+
+saveGridSucc
+    mov R0, #0
+
+saveGridEnd
+    pop {R14, R4-R10}
+    mov R15, R14
 
 erase
 ;;INP in R0 is the itters
@@ -544,10 +888,12 @@ getstring
 
     mov R5, #0 ;;R5 is the loop counter/index into buffer
 getstringloop
+    cmp R9, #-1
+    beq getstringloopskipsize
     cmp R5, R9 ;;position - maxsize
                       ;;pos 2 means 3 characters written
     bge getstringlend ;;if position >= maxsize
-
+getstringloopskipsize
     swi 1 ;;get input
     cmp R0, R8 ;;is input == terminator character
     beq getstringlend
@@ -844,7 +1190,7 @@ setupOptions
     swi 1   ;;get character answer
     swi 0
     cmp R0, #'Y'
-    ldr R0, =nlchar
+    ldr R0, =nl
     swi 0
 
     bne setupCustom
@@ -855,10 +1201,17 @@ setupOptions
     mov R0, #0
     strb R0, erase_b
     strb R0, slow_b
+    mov R0, #1
+    strb R0, step_b
+
+    cmp R4, #0
+    beq setupOptionsDSkipDims
+
     mov R0, #18
     strb R0, width
     strb R0, height
 
+setupOptionsDSkipDims
     pop {R14, R4}
     mov R15, R14 ;;RET
 
@@ -879,7 +1232,7 @@ setupCustom
     swi 1
     swi 0 
     cmp R0, #'Y' 
-    ldr R0, =nlchar
+    ldr R0, =nl
     swi 0
     movne R1, #0
     strb R1, step_b
@@ -891,7 +1244,7 @@ setupCustom
     swi 1
     swi 0
     cmp R0, #'Y'
-    ldr R0, =nlchar
+    ldr R0, =nl
     swi 0
     movne R1, #0
     strb R1, erase_b
@@ -911,7 +1264,7 @@ setupCustom
     swi 1
     swi 0 
     cmp R0, #'Y' 
-    ldr R0, =nlchar
+    ldr R0, =nl
     swi 0
     movne R1, #0
     strb R1, slow_b
@@ -934,10 +1287,15 @@ getwid
     mov R1, #2
     mov R2, #1
     bl getstring
+    mov R4, R0
 
     bl strtoi
+    mov R5, R0
+    
+    mov R0, R4
+    bl free ;;free the collected string
 
-    mov R1, R0
+    mov R1, R5
 
     bl newline
 
@@ -965,10 +1323,15 @@ gethei
     mov R1, #2
     mov R2, #1
     bl getstring
+    mov R4, R0
 
     bl strtoi
+    mov R5, R0
 
-    mov R1, R0
+    mov R0, R4
+    bl free
+
+    mov R1, R5
 
     bl newline
 
@@ -1454,31 +1817,42 @@ step_b          defb 0
 width           defb 18
 height          defb 18
 
-;;String defs
-welcomemsg      defb "-----------Welcome to JCGOL in ARM32-----------\n", 0
-welcome2msg     defb "To start a new board press n\nTo load a saved board press l\nTo quit press q\n", 0
-mainchoicefail  defb "Invalid choice please enter 'n' for new board or 'l' for load a board or 'q' to close. Not cases sensative\n", 0
+;;String defs -- The naming scheme is bad :(
+welcomemsg      defb "-----------Welcome to JCGOL in ARM32-----------", nl, 0
+welcome2msg     defb "To start a new board press n\nTo load a saved board press l\nTo quit press q", nl, 0
+mainchoicefail  defb "Invalid choice please enter 'n' for new board or 'l' for load a board or 'q' to close. Not cases sensative", nl, 0
 helpmsg         defb "Slow mode will create a pause between each grid print to make it more readable - can't use with step mode\nErase mode will erase the previous board before printing the next - [is 2x slower]\n", 0
 help2msg        defb "Single step mode will prompt for input each time a grid is drawn, you can (s)ave the current state or (q)uit to menu", 0
+mainendmsg      defb "Thank you for playing JCGOL for ARM32", nl, 0
 askdefaults     defb "Would you like to use the default settings? Y/n: ", 0
 askerase        defb "Enable erase mode? Y/n: ", 0
 askslow         defb "Enable slow mode? Y/n: ", 0
 askstep         defb "Enable step mode? Y/n: ", 0
-stepslowwarning defb "Cannot have slow and step mode active at the same time, disabling slow mode\n", 0
+stepslowwarning defb "Cannot have slow and step mode active at the same time, disabling slow mode", nl, 0
 savedchoice     defb "Return to menu? (n for continue sim) Y/n: ", 0
 askname         defb "Please enter a name for the grid: ", 0
-warneraseslow   defb "Erase mode is active it is recommended to also use slow mode\n", 0
+warneraseslow   defb "Erase mode is active it is recommended to also use slow mode", nl, 0
 askwid          defb "Please enter a width (1-30): ", 0
 askhei          defb "Please enter a height (1-30): ", 0
 getwidfailmsg   defb "Invalid width please enter a value between 1-30 inclusive: ", 0
 getheifailmsg   defb "Invalid height please enter a value between 1-30 inclusive: ", 0
-usingDefault    defb "Using default values: dims=(18, 18) slowMode=Off eraseMode=Off stepMode=Off", nlchar, 0
+usingDefault    defb "Using default values: dims=(18, 18) slowMode=Off eraseMode=Off stepMode=On", nl, 0
 askgenoption    defb "Choose between (R)andom generation or (D)rawing the grid", 0
 setupGrdFailmsg defb "Invalid choice, use `R` for random generation and `d` for drawing the grid. Not case sensative: ", 0
 askseed         defb "Enter 4 characters to be used as the seed: ", 0
-drawfailmsg     defb "Invalid input please enter 1 or 0: ", nlchar, 0
-gridfailmsg     defb "Grid was not properly initialised, consider smaller dims", nlchar, 0
-
+drawfailmsg     defb "Invalid input please enter 1 or 0: ", nl, 0
+gridfailmsg     defb "Grid was not properly initialised, consider smaller dims", nl, 0
+gridsavefail    defb "There was an error allocating memory for the grid save", nl, 0
+gridloadempty   defb "There are no saved grids, start a step mode sim and save the grid, return to main menu to load", nl, 0
+gridloadpname   defb "Found a grid called: ", 0
+gridloadpwidth  defb "width: ", 0
+gridloadpheight defb "height: ", 0
+loadboardaski   defb "Please enter the index of the grid to load, or enter a negative index to not load a grid", nl, 0
+loadboardretmsg defb "Returning to main menu", nl, 0
+loadboardifail  defb "Invalid input given for the index", nl, 0
+loadboardirerr  defb "Invalid index, out of range", nl, 0
+loadboardmlcerr defb "Error allocating memory for loaded grid. Returing to main menu", nl, 0
+loadboardsucmsg defb "Successfully loaded the grid", nl, 0
 
 align
 heapstart       defw 0 ;;points to the end of the data this is where the heap can then begin
