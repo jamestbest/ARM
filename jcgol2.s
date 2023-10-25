@@ -29,7 +29,6 @@
 ;;      |-draw active grid
 ;;      `-goto loop
 
-
 ;;SINGLE STEP mode allows you to save the current state of the board into a list, also give it a name
 ;;At the main menu you can load a saved grid
 
@@ -47,12 +46,8 @@
 
 ;;  CURRENT ISSUES/TODOS
 ;;  |-More testing of malloc & free need to be done
-;;  |-Think about minimising the fragmentation of the heap - find the best free block instead of the first
-;;  |
-;;  |-Need to add the saveGrid and LoadGrids methods
-;;  |-Need to restructure the gridInfo struct - it needs the ptr to arr, maxsize, and current index - this will shift the sp offset to not n + m + 4 % 8 == 0
-;;  |-Need to copy the grid when saving to allow the current grid to be used again
-;;  `-When we're in the menu should the current grids be freed?
+;;  `-Think about minimising the fragmentation of the heap - find the best free block instead of the first
+  
 max_addr    EQU  0x100000
 stack_size  EQU  0x10000
 nl      EQU  10
@@ -119,12 +114,20 @@ mainchoice
     orr R0, R0, #32
     mov R4, R0
 
+    ;;These should really be functions
+
     cmp R4, #'n' ;;new board generation
     beq newboard
 
     cmp R4, #'l' ;;load a saved board
     mov R0, sp ;;load the info ptr
     beq loadboard
+
+    cmp R4, #'h'
+    beq printhelp
+
+    cmp R4, #'s'
+    beq settingsmenu
 
     cmp R4, #'q' ;;quit
     beq mainEnd
@@ -137,6 +140,422 @@ mainchoice
     ;;R4 will hold the active grid, R5 will hold the passive grid
     ;;Active is used to count neighbours, passive is used to place updated values in 
     ;;either can be drawn, just drawn in a different position
+
+
+;;update loop
+;;    - loop
+;;      |-count neighbours
+;;      |-update inactive grid
+;;      |-swap grids
+;;      |-draw grid
+;;      |-[slow?] - slow() - loops for some time to increase waiting time
+;;      |-[step?] - step() - waits for input, s and q will have effects
+;;      |-[erase?] - erase() - \b until grid is gone
+;;      `-goto loop
+mainloopstart
+    ;;load the slow, step, and erase booleans
+    ldrb R6, slow_b
+    ldrb R7, erase_b
+    ldrb R8, step_b
+
+    ldr R4, gridA
+    ldr R5, gridB
+
+    ;;(width * height) * 2 + 1 + height
+    ldrb R0, width
+    ldrb R1, height
+    mul R0, R0, R1
+    mov R0, R0, lsl #1
+    add R0, R0, #1
+    add R0, R0, R1
+    mov R9, R0      ;;R9 holds the itterations for erase, so it doesn't have to calc it every time
+
+    mov R10, #0 ;;This will hold the number of itterations, when it reaches 
+
+mainloop
+    ldrb R0, maxitters ;;run out of registers @-@
+    cmp R10, R0
+    add R10, R10, #1
+    bne mainloopcont
+
+    mov R10, #0
+
+    adrl R0, mainloopittsmsg
+    swi 3
+
+    b mainloopdostep
+
+mainloopcont
+    mov R0, R4
+    mov R1, R5
+    bl updategrid
+
+    mov R0, R4
+    bl drawgrid
+
+    cmp R8, #1
+    bne mainloopskipstep
+
+mainloopdostep
+    mov R0, sp
+    mov R1, R4 ;;give the active grid
+    bl step
+    cmp R0, #0
+    beq mainloopskipstep
+    
+    ;;If R0 is #1 then free and go to the main menu
+    ;;free the current grid
+    ldr R0, gridA
+    bl free
+    ldr R0, gridB
+    bl free
+
+    b mainmenu
+
+mainloopskipstep
+    cmp R6, #1
+    bleq slow
+
+    cmp R7, #1
+    moveq R0, R9
+    bleq erase
+
+    mov R0, R4
+    mov R4, R5
+    mov R5, R0 ;;SWAP the active and passive
+
+    b mainloop
+
+gridFail
+    adrl R0, gridfailmsg
+    swi 3
+
+mainEnd
+    ;;[[todo]]need to free all of the memory, saved grids (grids + names) + current grids
+
+    adrl R0, mainendmsg
+    swi 3
+
+    sub sp, fp, #24 ;;???
+    pop {R14, R4-R10}
+    mov R15, R14
+
+settingsmenu
+;;https://media.giphy.com/media/jOpLbiGmHR9S0/giphy.gif
+;;I think there's a limit on the defined string length
+    adrl R0, s_m1
+    swi 3
+
+    adrl R0, s_m2
+    swi 3
+    
+    adrl R0, s_m3
+    swi 3
+
+changesetting
+    adrl R0, s_m
+    swi 3
+
+changesettingget
+    ldr R0, =enter
+    mov R1, #2
+    mov R2, #1
+    bl getstring
+
+    mov R5, R0
+
+    bl strtoi
+
+    mov R4, R0
+    mov R6, R1
+    mov R0, R5
+
+    bl free
+
+    bl newline
+
+    cmp R6, #1
+    beq mainmenu
+
+    cmp R6, #0
+    beq changesettingscont
+
+changesettingserr
+    adrl R0, s_m_err
+    swi 3
+
+    b changesettingget
+
+changesettingscont
+    cmp R4, #6
+    bgt changesettingserr
+
+    ;;now we have the index we can print the current value and prompt for a new one then loop back up to the getsetting
+
+    ;;No jump tables \(-__-)/
+    cmp R4, #0
+    beq changestep
+
+    cmp R4, #1
+    beq changeslow
+
+    cmp R4, #2
+    beq changeerase
+
+    cmp R4, #3
+    beq changedims
+
+    cmp R4, #4
+    beq changerange
+
+    cmp R4, #5
+    beq changeicons
+
+    cmp R4, #6
+    beq changeitter
+
+changearr
+;;generic for changedims and change range
+;;INP in R0 is addr. for x
+;;INP in R1 is addr. for y
+;;INP in R2 is boolean for require x < y. 1 for require
+    push {R14, R4-R8}
+
+    mov R6, R0
+    mov R7, R1
+    mov R8, R2
+
+    bl printdims
+
+changearrget
+    adrl R0, currentaskx
+    swi 3
+
+    bl changearrgetvalidint
+    mov R4, R0
+
+    adrl R0, currentasky
+    swi 3
+
+    bl changearrgetvalidint
+    mov R5, R0
+
+    cmp R8, #1
+    bne changearrset
+
+    cmp R4, R5
+    bge changearrsizeerr
+
+    b changearrset
+
+changearrsizeerr
+    adrl R0, changearrsizmsg
+    swi 3
+
+    b changearrget
+
+changearrset
+    ;;now we have the two valid values so str them back
+    strb R4, [R6]
+    strb R5, [R7] 
+
+    mov R0, R6
+    mov R1, R7
+
+    bl printdims
+
+changearrend
+    pop {R14, R4-R8}
+    mov R15, R14
+
+;;And you thought the naming couldn't get worse \(*0*)/
+changearrgetvalidint ;;basically an inner function
+;;INP --
+;;OUT in R0 is the gotten value
+    push {R14, R4-R8}
+changearrgetvalidintget
+    ldr R0, =enter
+    mov R1, #3
+    mov R2, #1
+    bl getstring
+
+    mov R4, R0 ;;save the string to free
+
+    bl strtoi
+
+    mov R5, R0 ;;save the int value
+    mov R6, R1 ;;save err code
+
+    mov R0, R4
+    bl free
+
+    cmp R6, #0
+    beq changearrgetvalidintcont
+
+changearrgetvalidinterr
+    adrl R0, changearrgetvalidinterr
+    swi 3
+
+    b changearrgetvalidintget
+
+changearrgetvalidintcont
+    ;;we now have an int value, need to do bounds checks
+    cmp R5, #0
+    ble changearrgetvalidinterr
+
+    cmp R5, #255
+    bgt changearrgetvalidinterr
+
+changearrgetvalidintend
+    push {R14, R4-R8}
+    mov R15, R14
+
+printdims
+;;INP in R0 is addr. for x
+;;INP in R1 is addr. for y
+;;(_, _)
+    
+    mov R2, R0
+    mov R3, R1
+
+    adrl R0, currentDims
+    swi 3
+
+    adrl R0, bracket_open
+    swi 3
+
+    ldrb R0, [R2]
+    swi 4
+
+    adrl R0, comma_space
+    swi 3
+
+    ldrb R0, [R3]
+    swi 4
+
+    adrl R0, bracket_close
+    swi 3
+
+    ldr R0, =nl
+    swi 0
+
+    mov R15, R14
+
+changestep
+    adrl R0, step_b_d
+    adrl R1, currentstep
+
+    bl changebool
+
+    b changesetting
+
+changeslow
+    adrl R0, slow_b_d
+    adrl R1, currentslow
+
+    bl changebool
+
+    b changesetting
+
+changeerase
+    adrl R0, erase_b_d
+    adrl R1, currenterase
+
+    bl changebool
+
+    b changesetting
+
+changebool
+;;INP in R0 is the address of ___b_d
+;;INP in R1 is the address of the printing name
+;;OUT --
+    push {R14, R4-R8}
+
+    mov R4, R0
+    mov R5, R1
+
+    mov R0, R1
+    swi 3
+
+    ldrb R0, [R4]
+    cmp R0, #1
+    adrlne R0, off_msg
+    adrleq R0, on_msg
+    swi 3
+
+    bl newline
+
+    adrl R0, currentasknew_B
+    swi 3
+
+changebool_cont
+    swi 1
+
+    sub R0, R0, #48
+    cmp R0, #1
+    beq changebool_set
+    cmp R0, #0
+    beq changebool_set
+
+    bl newline
+
+    adrl R0, currentasknew_E
+    swi 3
+
+    b changebool_cont
+
+changebool_set
+    strb R0, [R4]
+
+    bl newline
+
+    mov R0, R5
+    swi 3
+
+    ldrb R0, [R4]
+    cmp R0, #1
+    adrlne R0, off_msg
+    adrleq R0, on_msg
+    swi 3
+
+    bl newline
+
+changeboolend
+    pop {R14, R4-R8}
+    mov R15, R14
+
+changedims
+;;INP in R0 is addr. for x
+;;INP in R1 is addr. for y
+;;INP in R2 is boolean for require x < y. 1 for require
+    adrl R0, width_d
+    adrl R1, height_d
+    mov R2, #0
+    bl changearr
+
+    b changesetting
+
+changerange
+    adrl R0, range_min_d
+    adrl R1, range_max_d
+    mov R2, #1
+    bl changearr
+
+    b changesetting
+
+changeicons
+
+changeitter
+
+    b mainmenu
+
+printhelp
+    adrl R0, helpinfomsg
+    swi 3
+
+    swi 1
+
+    b mainmenu
 
 newboard
     mov R0, #1;;should get dims
@@ -308,89 +727,6 @@ loadboarderr
 loadboardsucc
     b mainloopstart
 
-
-;;update loop
-;;    - loop
-;;      |-count neighbours
-;;      |-update inactive grid
-;;      |-swap grids
-;;      |-draw grid
-;;      |-[slow?] - slow() - loops for some time to increase waiting time
-;;      |-[step?] - step() - waits for input, s and q will have effects
-;;      |-[erase?] - erase() - \b until grid is gone
-;;      `-goto loop
-mainloopstart
-    ;;load the slow, step, and erase booleans
-    ldrb R6, slow_b
-    ldrb R7, erase_b
-    ldrb R8, step_b
-
-    ldr R4, gridA
-    ldr R5, gridB
-
-    ;;(width * height) * 2 + 1 + height
-    ldrb R0, width
-    ldrb R1, height
-    mul R0, R0, R1
-    mov R0, R0, lsl #1
-    add R0, R0, #1
-    add R0, R0, R1
-    mov R9, R0      ;;R9 holds the itterations for erase, so it doesn't have to calc it every time
-
-mainloop
-    mov R0, R4
-    mov R1, R5
-    bl updategrid
-
-    mov R0, R4
-    bl drawgrid
-
-    cmp R8, #1
-    bne mainloopskipstep
-
-    mov R0, sp
-    mov R1, R4 ;;give the active grid
-    bl step
-    cmp R0, #0
-    beq mainloopskipstep
-    
-    ;;If R0 is #1 then free and go to the main menu
-    ;;free the current grid
-    ldr R0, gridA
-    bl free
-    ldr R0, gridB
-    bl free
-
-    b mainmenu
-
-mainloopskipstep
-    cmp R6, #1
-    bleq slow
-
-    cmp R7, #1
-    moveq R0, R9
-    bleq erase
-
-    mov R0, R4
-    mov R4, R5
-    mov R5, R0 ;;SWAP the active and passive
-
-    b mainloop
-
-gridFail
-    adrl R0, gridfailmsg
-    swi 3
-
-mainEnd
-    ;;need to free all of the memory, saved grids (grids + names) + current grids
-
-    adrl R0, mainendmsg
-    swi 3
-
-    sub sp, fp, #24 ;;???
-    pop {R14, R4-R10}
-    mov R15, R14
-
 newline
     ldr R0, =nl
     swi 0
@@ -481,6 +817,13 @@ listGrids
 ;;  print("There is a grid called %s with dims (%d, %d)")
     mov R1, #0 ;;i
     ldr R2, =sizeofSaveI
+
+    adrl R0, listgridmsg
+    swi 3
+
+    adrl R0, cutoff
+    swi 3
+
 listGridsLoop
     cmp R1, R5
     beq listGridsLend
@@ -490,11 +833,19 @@ listGridsLoop
     ldrb R7, [R3, #8] ;;load the width
     ldrb R8, [R3, #9] ;;load the height
 
-    mov R0, R1
-    swi 4
+    adrl R0, gridloadpindex
+    swi 3
 
     mov R0, #':'
     swi 0
+
+    mov R0, R1
+    swi 4
+
+    bl newline
+
+    adrl R0, gridloadpname
+    swi 3
 
     mov R0, R6
     swi 3
@@ -522,6 +873,9 @@ listGridsLoop
     ;;             Would have to swap the width and height with the loaded versions - I really don't like this idea
 
     add R1, R1, #1
+
+    adrl R0, cutoff
+    swi 3
 
     b listGridsLoop
 
@@ -696,7 +1050,6 @@ heapcleanloop ;;starting at heapstart
 heapcleanend
     mov R15, R14
 
-
 strlen
 ;;INP in R0 is the address of the string
 ;;OUT in R0 is the length of the null terminated string
@@ -719,6 +1072,45 @@ strlenloop
 strlenend
     mov R0, R1
     mov R15, R14
+
+
+align
+;;;HAD TO MOVE HERE FOR THE RANGE OF LDR
+
+heaphead        defw 0x10000 ;;default start changed to addr of heapstart 
+
+;;Integer defs
+offsets         defw -1,-1,-1,0,-1,1,0,-1,0,1,1,-1,1,0,1,1 ;;[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]]
+
+;;Grid addresses
+gridA           defw 0
+gridB           defw 0
+
+;;options
+erase_b         defb 0
+slow_b          defb 0
+step_b          defb 0
+width           defb 18
+height          defb 18
+range_min       defb 1
+range_max       defb 30
+maxitters       defb 25
+
+;;default options
+erase_b_d       defb 0
+slow_b_d        defb 0
+step_b_d        defb 1
+width_d         defb 18
+height_d        defb 18
+range_min_d     defb 1
+range_max_d     defb 30
+maxitters_d     defb 25
+
+alive_c         defb 'X'
+dead_c          defb '-'
+ptr_c           defb '#'
+
+align
 
 strtoi
 ;;INP in R0 is the address of the string
@@ -1064,9 +1456,16 @@ setupGridAsk
 
 setupdrawing
     mov R9, #0
+
+    adrl R0, drawinfomsg
+    swi 3
+
     b setupstart
 
 setuprandom
+    adrl R0, askseed
+    swi 3
+
     mov R0, #0
     mov R1, #4
     mov R2, #1
@@ -1102,7 +1501,7 @@ setupcolloop
 
     cmp R9, #1
     beq dorandom
-    b dodraw
+    b dodrawstart
 
 ;;dorandom and dodraw will get their value for this position and then place it in R2
 ;;R3 is free at this point
@@ -1113,6 +1512,17 @@ dorandom
     eor R8, R8, R3
     and R2, R8, #1
     b setupcollcont
+
+dodrawstart
+    mla R3, R5, R6, R10 ;;R3 = row * width + col
+
+    mov R0, #2
+    strb R0, [R4, R3]
+
+    cmp R9, #0
+    moveq R0, R4
+    bleq drawgrid ;;print the new state of the grid if this is drawing mode
+
 dodraw
     ;;get input, validate 1 or 0
     ;;if invalid print error loop back
@@ -1130,18 +1540,21 @@ dodraw
     b dodraw
 
 dodrawsucc
+    push {R0}
+    mul R0, R6, R7      ;;I don't like having to do this every time :(
+    mov R0, R0, lsl #1
+    add R0, R0, #1
+    add R0, R0, R7
+    bl erase
+    pop {R0}
+
     sub R2, R0, #48 ;;could be xor?
 
 setupcollcont
     ;;place the value in R2 into the grid[row][col]
     ;;row * width + col
-
-    mla R3, R5, R6, R10 ;;R3 = row * width + col
+    mla R3, R5, R6, R10 ;;R3 = row * width + col ;;I'm doing this twice \-(*v*)-/
     strb R2, [R4, R3] ;;grid offset by R3
-
-    cmp R9, #0
-    moveq R0, R4
-    bleq drawgrid ;;print the new state of the grid if this is drawing mode
 
     add R10, R10, #1
     b setupcolloop
@@ -1150,6 +1563,10 @@ setupcollend
     b setuprowloop
 setuprowlend
     ;;grid has been setup
+    cmp R9, #1
+    bne setupGridEnd
+    mov R0, R8 ;;free the seed
+    bl free
 
 setupGridFail
 setupGridEnd
@@ -1186,12 +1603,21 @@ drawgridcolloop
     mla R3, R2, R4, R1 ;;R3 = row * width + col
     ldrb R3, [R6, R3]
 
+    cmp R3, #2
+    beq drawgridprintcurrent
     cmp R3, #1
-    moveq R0, #'X'
-    movne R0, #'-'
+    ldreq R0, alive_c
+    ldrne R0, dead_c
 
     swi 0
 
+    b drawgridcollcont
+
+drawgridprintcurrent
+    ldr R0, ptr_c
+    swi 0
+
+drawgridcollcont
     mov R0, #' '
     swi 0
 
@@ -1213,6 +1639,54 @@ drawgridend
     mov R15, R14
 
 
+printoptions
+;;INP --
+;;OUT --
+;;optionsp_1-5
+    adrl R0, optionsp_1
+    swi 3
+
+    ldrb R0, width
+    swi 4
+
+    adrl R0, optionsp_2
+    swi 3
+
+    ldrb R0, height
+    swi 4
+
+    adrl R0, optionsp_3
+    swi 3
+
+    ldrb R0, slow_b
+    cmp R0, #1
+    adrlne R0, off_msg
+    adrleq R0, on_msg
+    swi 3
+
+    adrl R0, optionsp_4
+    swi 3
+
+    ldrb R0, erase_b
+    cmp R0, #1
+    adrlne R0, off_msg
+    adrleq R0, on_msg
+    swi 3
+
+    adrl R0, optionsp_5
+    swi 3
+
+    ldrb R0, step_b
+    cmp R0, #1
+    adrlne R0, off_msg
+    adrleq R0, on_msg
+    swi 3
+
+    ldr R0, =nl
+    swi 0
+
+    mov R15, R14
+
 setupOptions
 ;;INP in R0 is 1 if should ask for dims 0 for skip
     push {R14, R4}
@@ -1228,23 +1702,24 @@ setupOptions
 
     bne setupCustom
 
-    adrl R0, usingDefault
-    swi 3
-
-    mov R0, #0
+    ldrb R0, erase_b_d
     strb R0, erase_b
+    ldrb R0, slow_b_d
     strb R0, slow_b
-    mov R0, #1
+    ldrb R0, step_b_d
     strb R0, step_b
 
     cmp R4, #0
-    beq setupOptionsDSkipDims
+    beq setupOptionsDEnd
 
-    mov R0, #18
+    ldrb R0, width_d
     strb R0, width
+    ldrb R0, height_d
     strb R0, height
 
-setupOptionsDSkipDims
+setupOptionsDEnd
+    bl printoptions
+
     pop {R14, R4}
     mov R15, R14 ;;RET
 
@@ -1332,10 +1807,13 @@ getwid
 
     bl newline
 
-    cmp R1, #30
+    ldrb R4, range_min
+    ldrb R5, range_max
+
+    cmp R1, R5
     bgt getwidFail
-    cmp R1, #0
-    ble getwidFail
+    cmp R1, R4
+    blt getwidFail
 
     strb R1, width
 
@@ -1368,10 +1846,13 @@ gethei
 
     bl newline
 
-    cmp R1, #30
+    ldrb R4, range_min
+    ldrb R5, range_max
+
+    cmp R1, R5
     bgt getheiFail
-    cmp R1, #0
-    ble getheiFail
+    cmp R1, R4
+    blt getheiFail
 
     strb R1, height
 
@@ -1384,6 +1865,8 @@ getheiFail
     b gethei
 
 customend
+    bl printoptions
+
     pop {R14, R4}
     mov R15, R14 ;;RET
 
@@ -1835,25 +2318,11 @@ freeEnd
     mov R15, R14
 
 align
-;;Integer defs
-heaphead        defw 0x10000 ;;default start changed to addr of heapstart
-offsets         defw -1,-1,-1,0,-1,1,0,-1,0,1,1,-1,1,0,1,1 ;;[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]]
-
-;;Grid addresses
-gridA           defw 0
-gridB           defw 0
-
-;;options
-erase_b         defb 0
-slow_b          defb 0
-step_b          defb 0
-width           defb 18
-height          defb 18
 
 ;;String defs -- The naming scheme is bad :(
 welcomemsg      defb "-----------Welcome to JCGOL in ARM32-----------", nl, 0
-welcome2msg     defb "To start a new board press n\nTo load a saved board press l\nTo quit press q", nl, 0
-mainchoicefail  defb "Invalid choice please enter 'n' for new board or 'l' for load a board or 'q' to close. Not cases sensative", nl, 0
+welcome2msg     defb "(N)ew board\n(L)oad a saved board\n(H)elp msg\n(S)ettings\n(Q)uit", nl, 0
+mainchoicefail  defb "Invalid choice please enter 'n' for new board, 'l' for load a board, 'h' to view help message, 's' to view settings, or 'q' to close. Not cases sensative", nl, 0
 helpmsg         defb "Slow mode will create a pause between each grid print to make it more readable - can't use with step mode\nErase mode will erase the previous board before printing the next - [is 2x slower]\n", 0
 help2msg        defb "Single step mode will prompt for input each time a grid is drawn, you can (s)ave the current state or (q)uit to menu", 0
 mainendmsg      defb "Thank you for playing JCGOL for ARM32", nl, 0
@@ -1869,23 +2338,71 @@ askwid          defb "Please enter a width (1-30): ", 0
 askhei          defb "Please enter a height (1-30): ", 0
 getwidfailmsg   defb "Invalid width please enter a value between 1-30 inclusive: ", 0
 getheifailmsg   defb "Invalid height please enter a value between 1-30 inclusive: ", 0
+
+;;[[todo]] change to printing the current options
 usingDefault    defb "Using default values: dims=(18, 18) slowMode=Off eraseMode=Off stepMode=On", nl, 0
+usingDefWODims  defb "Using default values: slowMode=Off eraseMode=Off stepMode=On", nl, 0
+
+optionsp_1      defb "Current options: dims=(", 0 ;;width
+optionsp_2      defb ", ", 0 ;;height
+optionsp_3      defb ") slowMode=", 0 ;;OFF/ON
+optionsp_4      defb " eraseMode=", 0 ;;^
+optionsp_5      defb " stepMode=", 0  ;;^
+
+mainloopittsmsg defb "You've reached the max itterations before waiting for input. You can change this in settings. Press any key to continue", nl, 0
+
 askgenoption    defb "Choose between (R)andom generation or (D)rawing the grid", 0
 setupGrdFailmsg defb "Invalid choice, use `R` for random generation and `d` for drawing the grid. Not case sensative: ", 0
 askseed         defb "Enter 4 characters to be used as the seed: ", 0
+drawinfomsg     defb "Using '1' and '0' choose the value of the current cell", nl, 0
 drawfailmsg     defb "Invalid input please enter 1 or 0: ", nl, 0
 gridfailmsg     defb "Grid was not properly initialised, consider smaller dims", nl, 0
 gridsavefail    defb "There was an error allocating memory for the grid save", nl, 0
 gridloadempty   defb "There are no saved grids, start a step mode sim and save the grid, return to main menu to load", nl, 0
-gridloadpname   defb "Found a grid called: ", 0
-gridloadpwidth  defb "width: ", 0
-gridloadpheight defb "height: ", 0
-loadboardaski   defb "Please enter the index of the grid to load, or enter a negative index to not load a grid", nl, 0
+gridloadpindex  defb "|index: ", 0
+gridloadpname   defb "|name: ", 0
+gridloadpwidth  defb "|width: ", 0
+gridloadpheight defb "|height: ", 0
+loadboardaski   defb "Please enter the index of the grid to load, or enter a negative index to not load a grid. (press enter to input)", nl, 0
 loadboardretmsg defb "Returning to main menu", nl, 0
 loadboardifail  defb "Invalid input given for the index", nl, 0
 loadboardirerr  defb "Invalid index, out of range", nl, 0
 loadboardmlcerr defb "Error allocating memory for loaded grid. Returing to main menu", nl, 0
 loadboardsucmsg defb "Successfully loaded the grid", nl, 0
+listgridmsg     defb "Listing all availible saved grids", nl, 0
+cutoff          defb "-----------------", nl, 0
+helpinfomsg     defb "[[add]]"
+settingsmsg     defb "[[add]]"
+
+s_m1            defb "Settings", nl, "|-[0] stepMode_d     - The following 4 settings are the default values for the options", nl, "|-[1] slowMode_d", nl, "|-[2] eraseMode_d", nl, "|-[3] Dims_d", nl, 0
+s_m2            defb "|-[4] range          - The range of values that the dims can have (1-255 && range_min < range_max)", nl, 0
+s_m3            defb "|-[5] Icons          - The characters printed for an alive/dead/ptr cell",nl, "`-[6] itters         - The number of itterations in the non-step version before it will wait for input", nl, 0
+s_m             defb "Enter the index of the setting to edit or -1 to return to the menu (press enter to input): ", 0
+s_m_err         defb "Error invalid index. Re-enter: ", 0
+
+currentslow     defb "Slow_d: ", 0
+currenterase    defb "Erase_d: ", 0
+currentstep     defb "Step_d: ", 0
+currentDims     defb "Dims: ", 0
+currentRange    defb "Range: ", 0
+bracket_open    defb "(", 0
+comma_space     defb ", ", 0
+bracket_close   defb ")", 0
+currenticons_1  defb "Alive: ", 0
+currenticons_2  defb "Dead: ", 0
+currenticons_3  defb "Ptr: ", 0
+currentitter    defb "Itters: ", 0
+currentaskx     defb "Enter value for x: ", 0
+currentasky     defb "Enter value for y: ", 0
+currentasknew   defb "Enter new value: ", 0
+currentasknew_B defb "Enter new value (0 or 1): ", 0
+currentasknew_E defb "Error invalid re-enter: ", 0
+currentarrerr   defb "Invalid value entered re-enter: ", 0
+changearrsizmsg defb "Invalid, x >= y.", nl, 0
+
+on_msg          defb "ON", 0
+off_msg         defb "OFF", 0
+comma           defb ",", 0
 
 align
 heapstart       defw 0 ;;points to the end of the data this is where the heap can then begin
