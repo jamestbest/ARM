@@ -45,7 +45,6 @@
 
 
 ;;  CURRENT ISSUES/TODOS
-;;  |-More testing of malloc & free need to be done
 ;;  `-Think about minimising the fragmentation of the heap - find the best free block instead of the first
   
 max_addr    EQU  0x100000
@@ -159,9 +158,6 @@ mainchoice
     cmp R4, #'l' ;;load a saved board
     mov R0, sp ;;load the info ptr
     beq loadboard
-
-    cmp R4, #'h'
-    beq printhelp
 
     cmp R4, #'s'
     beq settingsmenu
@@ -782,14 +778,6 @@ changedrawerase
 
 changedraweraseend
     b changesetting
-
-printhelp
-    adrl R0, helpinfomsg
-    swi 3
-
-    swi 1
-
-    b mainmenu
 
 newboard
     mov R0, #1;;should get dims
@@ -2417,6 +2405,7 @@ splitcrate
 
     ;;MAYBE: can the crates that are taken have a smaller header than those that are free. Taken crates need not store the next, prev free nodes
     ;;This may complicate things as size would need to be moved around and the size from taken to free would be different. 
+    ;;This would have been easier if the size of the Crate was stored at the start but it's not, I'm probably not going to add this its not worth it.
 
     add R4, R4, #12
 
@@ -2751,10 +2740,8 @@ align
 
 ;;String defs -- The naming scheme is bad :(
 welcomemsg      defb "-----------Welcome to JCGOL in ARM32-----------", nl, 0
-welcome2msg     defb "(N)ew board\n(L)oad a saved board\n(H)elp msg\n(S)ettings\n(P)rint the heap\n(Q)uit", nl, 0
-mainchoicefail  defb "Invalid choice please enter 'n' for new board, 'l' for load a board, 'h' to view help message, 's' to view settings, 'p' to view the heap, or 'q' to close. Not cases sensative", nl, 0
-helpmsg         defb "Slow mode will create a pause between each grid print to make it more readable - can't use with step mode\nErase mode will erase the previous board before printing the next - [is 2x slower]\n", 0
-help2msg        defb "Single step mode will prompt for input each time a grid is drawn, you can (s)ave the current state or (q)uit to menu", 0
+welcome2msg     defb "(N)ew board\n(L)oad a saved board\n(S)ettings\n(P)rint the heap\n(Q)uit", nl, 0
+mainchoicefail  defb "Invalid choice please enter 'n' for new board, 'l' for load a board, 's' to view settings, 'p' to view the heap, or 'q' to close. Not cases sensative", nl, 0
 mainendmsg      defb "Thank you for playing JCGOL for ARM32", nl, 0
 askdefaults     defb "Would you like to use the default settings? Y/n: ", 0
 askerase        defb "Enable erase mode? Y/n: ", 0
@@ -2770,10 +2757,6 @@ b_close_colon   defb "): ",0
 askhei          defb "Please enter a height ", 0
 getwidfailmsg   defb "Invalid width please enter a value between ", 0
 getheifailmsg   defb "Invalid height please enter a value between ", 0
-
-;;[[todo]] change to printing the current options
-usingDefault    defb "Using default values: dims=(18, 18) slowMode=Off eraseMode=Off stepMode=On", nl, 0
-usingDefWODims  defb "Using default values: slowMode=Off eraseMode=Off stepMode=On", nl, 0
 
 optionsp_1      defb "Current options: dims=(", 0 ;;width
 optionsp_2      defb ", ", 0 ;;height
@@ -2803,8 +2786,6 @@ loadboardmlcerr defb "Error allocating memory for loaded grid. Returing to main 
 loadboardsucmsg defb "Successfully loaded the grid", nl, 0
 listgridmsg     defb "Listing all availible saved grids", nl, 0
 cutoff          defb "-----------------", nl, 0
-helpinfomsg     defb "[[add]]"
-settingsmsg     defb "[[add]]"
 changearrverr_m defb "Error invalid value given (1-255) inclusive. Re-enter: ", nl, 0
 
 s_m1            defb "Settings", nl, "|-[0] stepMode_d     - The following 4 settings are the default values for the options", nl, "|-[1] slowMode_d", nl, "|-[2] eraseMode_d", nl, "|-[3] Dims_d", nl, 0
