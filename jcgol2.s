@@ -166,6 +166,9 @@ mainchoice
     cmp R4, #'s'
     beq settingsmenu
 
+    cmp R4, #'p'
+    beq showHeap
+
     cmp R4, #'q' ;;quit
     beq mainEnd
 
@@ -178,6 +181,11 @@ mainchoice
     ;;Active is used to count neighbours, passive is used to place updated values in 
     ;;either can be drawn, just drawn in a different position
 
+
+showHeap
+    bl printHeap
+
+    b mainmenu
 
 ;;update loop
 ;;    - loop
@@ -273,9 +281,55 @@ mainEnd
     adrl R0, mainendmsg
     swi 3
 
+    mov R0, sp
+    bl mainfree
+
     sub sp, fp, #24 ;;???
     pop {R14, R4-R10}
     mov R15, R14
+
+mainfree
+;;INP in R0 is the saveInfoStruct
+;;OUT --
+;;free all of the memory that we used i.e. any saved grids, saved grid names, and the arr of saved grids
+    push {R14, R4-R8}
+
+    ldr R5, [R0, #8] ;;get the current index this is the number of elements in the arr
+    ldr R6, [R0, #0] ;;This is the array address
+    ldr R7, =sizeofSaveI
+
+    mov R4, #0
+mainfreeloop
+    ;;loop through the savedGrids
+    cmp R4, R5
+    beq mainfreelend
+
+    mla R8, R4, R7, R6
+    ldr R0, [R8, #0] ;;get the address of the grid
+    ldr R8, [R8, #4] ;;get the address of the char*
+
+    bl free
+
+    mov R0, R8
+    bl free
+
+    add R4, R4, #1
+    b mainfreeloop
+
+mainfreelend
+    ;;free the array
+    mov R0, R6
+    bl free
+
+mainfreeend
+    pop {R14, R4-R8}
+    mov R15, R14
+
+    ;;Save info struct
+;;  -address of grid [4 BYTES]
+;;  -char* to the name [4 BYTES]
+;;  -width of grid (1 BYTE)
+;;  -height of grid (1 BYTE)
 
 settingsmenu
 ;;https://media.giphy.com/media/jOpLbiGmHR9S0/giphy.gif
@@ -1610,7 +1664,9 @@ setuprandom
     mov R2, #1
     bl getstring
 
-    mov R8, R0
+    ldr R8, [R0]
+
+    bl free
 
     bl newline
 
@@ -1721,11 +1777,6 @@ setupcollend
     b setuprowloop
 setuprowlend
     ;;grid has been setup
-    cmp R9, #1
-    bne setupGridEnd
-    mov R0, R8 ;;free the seed
-    bl free
-
 setupGridFail
 setupGridEnd
     pop {R14, R4-R10}
@@ -1834,7 +1885,8 @@ printoptions
     adrl R0, optionsp_5
     swi 3
 
-    ldrb R0, step_b
+    adrl R0, step_b
+    ldrb R0, [R0]
     cmp R0, #1
     adrlne R0, off_msg
     adrleq R0, on_msg
@@ -2538,6 +2590,159 @@ freeEnd
     pop {R4-R8}
     mov R15, R14
 
+
+printHeap
+;;This is a debugging function that will print the free and taken list
+;;,-----------------------------------------------------------------,
+;;|   large free block  |tkn1   |tkn2       | freed1    | tkn3      |
+;;|                     |       |           |           |           |
+;;|                     |       |           |           |           |
+;;`-----------------------------------------------------------------'
+
+;;  PrintFree() - follow the free list ptrs print addr + size
+;;  PrintAll()  - start at head and go addr + size + 12 to get next, continue to end
+    push {R14, R4-R10}
+
+    bl printFree
+
+    bl printAll
+
+printHeapend
+    pop {R14, R4-R10}
+    mov R15, R14
+
+printAll
+    push {R14, R4-R8}
+
+    adrl R0, printAll_m
+    swi 3
+    
+    adrl R0, heapstart
+    mov R4, R0
+
+    mov R5, R0 ;;stores the next expected free node
+
+printAllLoop
+    ldr R1, [R4, #0] ;;next ptr
+    ldr R2, [R4, #4] ;;prev ptr
+    ldr R3, [R4, #8] ;;size
+
+    ;;check if this is a free node
+    cmp R5, R4
+    bne skipFreeInfo
+
+    adrl R0, printAll_m_f
+    swi 3
+
+    mov R5, R1
+
+skipFreeInfo
+    mov R0, R4
+    bl printblock
+
+    ;;calculate the next block
+    ;;addr + 12 + size
+
+    add R0, R4, #12
+    add R0, R0, R3
+
+    mov R4, R0
+
+    cmp R4, #0xF0000
+    bge printAllLend
+    
+    b printAllLoop
+
+printAllLend
+printAllEnd
+    pop {R14, R4-R8}
+    mov R15, R14
+
+printFree
+    push {R14, R4-R8}
+
+    adrl R0, printFree_m
+    swi 3
+
+    adrl R0, heapstart
+    mov R4, R0
+
+printFreeloop
+    ldr R1, [R4, #0] ;;next ptr
+    ldr R2, [R4, #4] ;;prev ptr
+    ldr R3, [R4, #8] ;;size
+
+    adrl R0, printfree_f_m
+    swi 3
+
+    mov R0, R4
+    bl printblock
+
+    cmp R1, #0
+    beq printFreelend
+
+    mov R4, R1
+    b printFreeloop
+
+printFreelend
+printFreeEnd
+    pop {R14, R4-R8}
+    mov R15, R14
+
+printblock
+;;INP in R0 is the addr
+;;INP in R1 is the next
+;;INP in R2 is the prev
+;;INP in R3 is the size
+;;RET --
+    push {R4}
+    mov R4, R0
+
+    adrl R0, cutoff
+    swi 3
+
+    adrl R0, printfree_f_mad
+    swi 3
+
+    mov R0, R4
+    swi 4
+
+    ldr R0, =nl
+    swi 0
+
+    adrl R0, printfree_f_mnx
+    swi 3
+
+    mov R0, R1
+    swi 4
+
+    ldr R0, =nl
+    swi 0
+
+    adrl R0, printfree_f_mpr
+    swi 3
+
+    mov R0, R2
+    swi 4
+
+    ldr R0, =nl
+    swi 0
+
+    adrl R0, printfree_f_msz
+    swi 3
+
+    mov R0, R3
+    swi 4
+
+    ldr R0, =nl
+    swi 0
+
+    adrl R0, cutoff
+    swi 3
+
+    pop {R4}
+    mov R15, R14
+
 align
 
 ;;String defs -- The naming scheme is bad :(
@@ -2631,6 +2836,17 @@ currentarrerr   defb "Invalid value entered re-enter: ", 0
 changearrsizmsg defb "Invalid, x >= y.", nl, 0
 changeittere_m  defb "Invalid itter value. Re-enter: ", nl, 0
 getitters_m     defb "Enter the max itterations (1-255): ", 0
+
+;;debug for heap
+printFree_m     defb "Printing free list", nl
+printfree_f_m   defb "Found a new free item", nl, 0
+printfree_f_mad defb "Address: ", 0
+printfree_f_mnx defb "Next   : ", 0
+printfree_f_mpr defb "Prev   : ", 0
+printfree_f_msz defb "Size   : ", 0
+
+printAll_m      defb "Printing all elements in the heap", nl, 0
+printAll_m_f    defb "This is a Free block", nl, 0
 
 on_msg          defb "ON", 0
 off_msg         defb "OFF", 0
