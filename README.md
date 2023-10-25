@@ -17,7 +17,7 @@ This is my second rendition of John Conway's Game of life.
 
 ### BTS
 #### Malloc & Free
-The heap is a contiguous area in memory from the end of the code section to the MAX_ADDR (0x100000) - STACK_SIZE (0x10000), it's ~1MB in size  
+The heap is a contiguous area in memory from the end of the code section to the MAX_ADDR (0x100000) - STACK_SIZE (0x10000) (0xF0000), it's ~960KB in size (varies based as there is metadata for the memory attatched)  
 There is a free list of memory locations on the heap stored as a linked list, unlike in Comodo this linked list does not store both the free and claimed memory in the heap, just the free. This makes it more efficient in terms of finding free blocks, but harder to debug.
 Although there is currently no performance benifit as the large free crate is always at the start of the free list, and because malloc doesn't try to find the 'best' block (i.e. size > requested but lowest size overall) it will always select the large block. This leads
 to fragmentation of the heap and is something I want to change.
@@ -49,7 +49,6 @@ then the values are copied over.
 
 ### Todo
   - Fix the heap fragmentation
-  - Free the memory at the end
 
 ### Maybe
 The main thing I've been thinking about adding is to designate an area of memory as 'non-volatile' this is of course only non-volatile between runs of the program no of KMD. This could then store the saved grids.  
