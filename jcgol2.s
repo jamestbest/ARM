@@ -276,13 +276,16 @@ gridFail
     swi 3
 
 mainEnd
-    ;;[[todo]]need to free all of the memory, saved grids (grids + names) + current grids
-
     adrl R0, mainendmsg
     swi 3
 
     mov R0, sp
     bl mainfree
+
+    adrl R0, printHeap_end_m
+    swi 3
+
+    bl printHeap
 
     sub sp, fp, #24 ;;???
     pop {R14, R4-R10}
@@ -2435,6 +2438,162 @@ mallocEnd
     pop {R4}
     mov R15, R14
 
+
+printHeap
+;;This is a debugging function that will print the free and taken list
+;;,-----------------------------------------------------------------,
+;;|   large free block  |tkn1   |tkn2       | freed1    | tkn3      |
+;;|                     |       |           |           |           |
+;;|                     |       |           |           |           |
+;;`-----------------------------------------------------------------'
+
+;;  PrintFree() - follow the free list ptrs print addr + size
+;;  PrintAll()  - start at head and go addr + size + 12 to get next, continue to end
+    push {R14, R4-R10}
+
+    bl printFree
+
+    bl printAll
+
+printHeapend
+    pop {R14, R4-R10}
+    mov R15, R14
+
+printAll
+    push {R14, R4-R8}
+
+    adrl R0, printAll_m
+    swi 3
+    
+    adrl R0, heapstart
+    mov R4, R0
+
+    mov R5, R0 ;;stores the next expected free node
+
+printAllLoop
+    ldr R1, [R4, #0] ;;next ptr
+    ldr R2, [R4, #4] ;;prev ptr
+    ldr R3, [R4, #8] ;;size
+
+    ;;check if this is a free node
+    cmp R5, R4
+
+    adrleq R0, printAll_m_f
+    adrlne R0, printAll_m_t
+    swi 3
+
+    bne printAllLoopCont
+
+    mov R5, R1
+
+printAllLoopCont
+    mov R0, R4
+    bl printblock
+
+    ;;calculate the next block
+    ;;addr + 12 + size
+
+    add R0, R4, #12
+    add R0, R0, R3
+
+    mov R4, R0
+
+    cmp R4, #0xF0000
+    bge printAllLend
+    
+    b printAllLoop
+
+printAllLend
+printAllEnd
+    pop {R14, R4-R8}
+    mov R15, R14
+
+printFree
+    push {R14, R4-R8}
+
+    adrl R0, printFree_m
+    swi 3
+
+    adrl R0, heapstart
+    mov R4, R0
+
+printFreeloop
+    ldr R1, [R4, #0] ;;next ptr
+    ldr R2, [R4, #4] ;;prev ptr
+    ldr R3, [R4, #8] ;;size
+
+    adrl R0, printfree_f_m
+    swi 3
+
+    mov R0, R4
+    bl printblock
+
+    cmp R1, #0
+    beq printFreelend
+
+    mov R4, R1
+    b printFreeloop
+
+printFreelend
+printFreeEnd
+    pop {R14, R4-R8}
+    mov R15, R14
+
+printblock
+;;INP in R0 is the addr
+;;INP in R1 is the next
+;;INP in R2 is the prev
+;;INP in R3 is the size
+;;RET --
+    push {R4}
+    mov R4, R0
+
+    adrl R0, cutoff
+    swi 3
+
+    adrl R0, printfree_f_mad
+    swi 3
+
+    mov R0, R4
+    swi 4
+
+    ldr R0, =nl
+    swi 0
+
+    adrl R0, printfree_f_mnx
+    swi 3
+
+    mov R0, R1
+    swi 4
+
+    ldr R0, =nl
+    swi 0
+
+    adrl R0, printfree_f_mpr
+    swi 3
+
+    mov R0, R2
+    swi 4
+
+    ldr R0, =nl
+    swi 0
+
+    adrl R0, printfree_f_msz
+    swi 3
+
+    mov R0, R3
+    swi 4
+
+    ldr R0, =nl
+    swi 0
+
+    adrl R0, cutoff
+    swi 3
+
+    pop {R4}
+    mov R15, R14
+
+
 free
 ;;INP in R0 is the mem addr of the data to be freed
 ;;OUT in R0 is the success code - 0 for mem freed, ¬0 for error ;;probably won't be currently used `=(- -)=' 
@@ -2459,7 +2618,7 @@ free
     ;;  |-ptr to prev crate (1 word)
     ;;  `-Size (bytes)      (1 word)
 
-    push {R4-R8}
+    push {R14, R4-R8}
 
     adrl R1, heaphead
     ldr R1, [R1] ;;R1 will hold the current
@@ -2577,8 +2736,6 @@ merge
     ldr R4, [R2, #0] ;;right->next
     cmp R4, R1
     strne R4, [R1, #0] ;;left->next = right->next
-    movne R4, #0
-    strne R4, [R1, #0]
 
     cmp R4, #0
     strne R1, [R4, #4] ;;right->next->prev = left
@@ -2587,168 +2744,15 @@ mergeNew
     ;;The crate has already been setup with its ptrs and had its size as well so don't need to do anything
 
 freeEnd
-    pop {R4-R8}
-    mov R15, R14
-
-
-printHeap
-;;This is a debugging function that will print the free and taken list
-;;,-----------------------------------------------------------------,
-;;|   large free block  |tkn1   |tkn2       | freed1    | tkn3      |
-;;|                     |       |           |           |           |
-;;|                     |       |           |           |           |
-;;`-----------------------------------------------------------------'
-
-;;  PrintFree() - follow the free list ptrs print addr + size
-;;  PrintAll()  - start at head and go addr + size + 12 to get next, continue to end
-    push {R14, R4-R10}
-
-    bl printFree
-
-    bl printAll
-
-printHeapend
-    pop {R14, R4-R10}
-    mov R15, R14
-
-printAll
-    push {R14, R4-R8}
-
-    adrl R0, printAll_m
-    swi 3
-    
-    adrl R0, heapstart
-    mov R4, R0
-
-    mov R5, R0 ;;stores the next expected free node
-
-printAllLoop
-    ldr R1, [R4, #0] ;;next ptr
-    ldr R2, [R4, #4] ;;prev ptr
-    ldr R3, [R4, #8] ;;size
-
-    ;;check if this is a free node
-    cmp R5, R4
-    bne skipFreeInfo
-
-    adrl R0, printAll_m_f
-    swi 3
-
-    mov R5, R1
-
-skipFreeInfo
-    mov R0, R4
-    bl printblock
-
-    ;;calculate the next block
-    ;;addr + 12 + size
-
-    add R0, R4, #12
-    add R0, R0, R3
-
-    mov R4, R0
-
-    cmp R4, #0xF0000
-    bge printAllLend
-    
-    b printAllLoop
-
-printAllLend
-printAllEnd
     pop {R14, R4-R8}
-    mov R15, R14
-
-printFree
-    push {R14, R4-R8}
-
-    adrl R0, printFree_m
-    swi 3
-
-    adrl R0, heapstart
-    mov R4, R0
-
-printFreeloop
-    ldr R1, [R4, #0] ;;next ptr
-    ldr R2, [R4, #4] ;;prev ptr
-    ldr R3, [R4, #8] ;;size
-
-    adrl R0, printfree_f_m
-    swi 3
-
-    mov R0, R4
-    bl printblock
-
-    cmp R1, #0
-    beq printFreelend
-
-    mov R4, R1
-    b printFreeloop
-
-printFreelend
-printFreeEnd
-    pop {R14, R4-R8}
-    mov R15, R14
-
-printblock
-;;INP in R0 is the addr
-;;INP in R1 is the next
-;;INP in R2 is the prev
-;;INP in R3 is the size
-;;RET --
-    push {R4}
-    mov R4, R0
-
-    adrl R0, cutoff
-    swi 3
-
-    adrl R0, printfree_f_mad
-    swi 3
-
-    mov R0, R4
-    swi 4
-
-    ldr R0, =nl
-    swi 0
-
-    adrl R0, printfree_f_mnx
-    swi 3
-
-    mov R0, R1
-    swi 4
-
-    ldr R0, =nl
-    swi 0
-
-    adrl R0, printfree_f_mpr
-    swi 3
-
-    mov R0, R2
-    swi 4
-
-    ldr R0, =nl
-    swi 0
-
-    adrl R0, printfree_f_msz
-    swi 3
-
-    mov R0, R3
-    swi 4
-
-    ldr R0, =nl
-    swi 0
-
-    adrl R0, cutoff
-    swi 3
-
-    pop {R4}
     mov R15, R14
 
 align
 
 ;;String defs -- The naming scheme is bad :(
 welcomemsg      defb "-----------Welcome to JCGOL in ARM32-----------", nl, 0
-welcome2msg     defb "(N)ew board\n(L)oad a saved board\n(H)elp msg\n(S)ettings\n(Q)uit", nl, 0
-mainchoicefail  defb "Invalid choice please enter 'n' for new board, 'l' for load a board, 'h' to view help message, 's' to view settings, or 'q' to close. Not cases sensative", nl, 0
+welcome2msg     defb "(N)ew board\n(L)oad a saved board\n(H)elp msg\n(S)ettings\n(P)rint the heap\n(Q)uit", nl, 0
+mainchoicefail  defb "Invalid choice please enter 'n' for new board, 'l' for load a board, 'h' to view help message, 's' to view settings, 'p' to view the heap, or 'q' to close. Not cases sensative", nl, 0
 helpmsg         defb "Slow mode will create a pause between each grid print to make it more readable - can't use with step mode\nErase mode will erase the previous board before printing the next - [is 2x slower]\n", 0
 help2msg        defb "Single step mode will prompt for input each time a grid is drawn, you can (s)ave the current state or (q)uit to menu", 0
 mainendmsg      defb "Thank you for playing JCGOL for ARM32", nl, 0
@@ -2847,6 +2851,9 @@ printfree_f_msz defb "Size   : ", 0
 
 printAll_m      defb "Printing all elements in the heap", nl, 0
 printAll_m_f    defb "This is a Free block", nl, 0
+printAll_m_t    defb "This is a Taken block", nl, 0
+
+printHeap_end_m defb "Here's the heap at the end of the program!", nl, 0
 
 on_msg          defb "ON", 0
 off_msg         defb "OFF", 0
