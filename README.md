@@ -49,6 +49,8 @@ then the values are copied over.
 
 ### Todo
   - Fix the heap fragmentation
+  - Find and Fix free issue that create circular Crates
+  - Add memset for malloc so that its always 0 then remove the heapClean
 
 ### Maybe
 The main thing I've been thinking about adding is to designate an area of memory as 'non-volatile' this is of course only non-volatile between runs of the program no of KMD. This could then store the saved grids.  
