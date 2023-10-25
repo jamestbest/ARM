@@ -136,6 +136,9 @@ main
     mul R0, R0, R1
     bl malloc ;;allocate the array on the heap
 
+    cmp R0, #0
+    beq mainMallocFail
+
     str R0, [sp, #0] ;;store the address
 
 mainmenu
@@ -271,6 +274,12 @@ gridFail
     adrl R0, gridfailmsg
     swi 3
 
+mainMallocFail
+    adrl R0, malloc_panic
+    swi 3
+
+    b mainEndEnd
+
 mainEnd
     adrl R0, mainendmsg
     swi 3
@@ -282,7 +291,7 @@ mainEnd
     swi 3
 
     bl printHeap
-
+mainEndEnd
     sub sp, fp, #24 ;;???
     pop {R14, R4-R10}
     mov R15, R14
@@ -355,6 +364,9 @@ changesettingget
     mov R2, #1
     bl getstring
 
+    cmp R0, #0
+    beq changesettingsmallocfail
+
     mov R5, R0
 
     bl strtoi
@@ -378,6 +390,12 @@ changesettingserr
     swi 3
 
     b changesettingget
+
+changesettingsmallocfail
+    adrl R0, malloc_panic
+    swi 3
+
+    b mainmenu
 
 changesettingscont
     cmp R4, #7
@@ -413,6 +431,7 @@ changearr
 ;;INP in R0 is addr. for x
 ;;INP in R1 is addr. for y
 ;;INP in R2 is boolean for require x < y. 1 for require
+;;OUT in R0 is err code non-0 for error
     push {R14, R4-R8}
 
     mov R6, R0
@@ -427,6 +446,8 @@ changearrget
 
     bl changearrgetvalidint
     mov R4, R0
+    cmp R1, #0
+    bne changearrmallocerr
 
     bl newline
 
@@ -462,7 +483,14 @@ changearrset
 
     bl printdims
 
+changearrmallocerr
+    mov R0, #1
+    b changearrendend
+
 changearrend
+    mov R0, #0
+
+changearrendend
     pop {R14, R4-R8}
     mov R15, R14
 
@@ -470,12 +498,16 @@ changearrend
 changearrgetvalidint ;;basically an inner function
 ;;INP --
 ;;OUT in R0 is the gotten value
+;;OUT in R1 is err code non-0 for fail
     push {R14, R4-R8}
 changearrgetvalidintget
     ldr R0, =enter
     mov R1, #3
     mov R2, #1
     bl getstring
+
+    cmp R0, #0
+    beq changearrgvmallocerr
 
     mov R4, R0 ;;save the string to free
 
@@ -506,9 +538,15 @@ changearrgetvalidintcont
     cmp R5, #255
     bgt changearrgetvalidinterr
 
+changearrgvmallocerr
+    mov R1, #1
+
+    b changearrgvendend
+
 changearrgetvalidintend
     mov R0, R5
-
+    mov R1, #0
+changearrgvendend
     pop {R14, R4-R8}
     mov R15, R14
 
@@ -635,6 +673,16 @@ changedims
     mov R2, #0
     bl changearr
 
+    cmp R0, #0
+    beq changedimscont
+
+    adrl R0, malloc_panic
+    swi 3
+
+    b mainmenu
+
+changedimscont
+
     b changesetting
 
 changerange
@@ -642,6 +690,16 @@ changerange
     adrl R1, range_max
     mov R2, #1
     bl changearr
+
+    cmp R0, #0
+    beq changerangecont
+
+    adrl R0, malloc_panic
+    swi 3
+
+    b mainmenu
+
+changerangecont
 
     b changesetting
 
@@ -731,6 +789,16 @@ changeitterget
     mov R2, #1
     bl getstring
 
+    cmp R0, #0
+    beq changeittergetcont
+
+    adrl R0, malloc_panic
+    swi 3
+
+    b mainmenu 
+
+changeittergetcont
+
     mov R4, R0
 
     bl strtoi
@@ -784,6 +852,9 @@ newboard
     bl setupOptions
 
     bl setupGrid
+
+    cmp R0, #0
+    bne mainMallocFail
     
     ldr R4, gridA
     ldr R5, gridB
@@ -820,6 +891,17 @@ loadboardaskindex
     mov R1, #-1
     mov R2, #1
     bl getstring
+
+    cmp R0, #0
+    bne loadboardaskindexcont
+
+    adrl R0, malloc_panic
+    swi 3
+
+    b mainmenu 
+
+loadboardaskindexcont
+
     mov R5, R0
 
     bl newline
@@ -982,6 +1064,16 @@ step
     mov R1, #-1
     mov R2, #1
     bl getstring
+
+    cmp R0, #0
+    bne stepcont
+
+    adrl R0, malloc_panic
+    swi 3
+
+    b stependfail
+
+stepcont
 
     mov R1, R0 ;;char* name
     mov R0, R4 ;;gridinfo* 
@@ -1493,6 +1585,10 @@ getstring
     ldr R6, =minBuffSize ;;R6 will hold the current size of the buffer
     mov R0, R6
     bl malloc
+
+    cmp R0, #0
+    beq getstringErr
+
     mov R4, R0 ;;R4 is the address of the buffer
 
     mov R5, #0 ;;R5 is the loop counter/index into buffer
@@ -1530,6 +1626,10 @@ getstringresize
     ;;r6 will hold new buffer
     mov R0, R6, lsl #1
     bl malloc
+
+    cmp R0, #0
+    beq getstringErr
+
     mov R7, R0
 
     mov R0, R4 ;;old buff
@@ -1557,6 +1657,10 @@ getstringlend
 getstringResizeEnd
     add R0, R6, #1
     bl malloc
+
+    cmp R0, #0
+    beq getstringErr
+
     mov R7, R0
 
     mov R0, R4;;old buff
@@ -1570,12 +1674,19 @@ getstringResizeEnd
 
     add R6, R6, #1 ;;not needed
 
+    b getstringEnd
+
+getstringErr
+    mov R0, #0
+    b getstringEndEnd
+
 getstringEnd
     mov R0, #0
     strb R0, [R4, R5]
 
     mov R0, R4
 
+getstringEndEnd
     pop {R14, R4-R10}
     mov R15, R14
 
@@ -1587,7 +1698,7 @@ tolower
 
 setupGrid
 ;;INP --
-;;RET --
+;;RET in R0 is err code, non-0 is error
 ;;The values addresses of the grids will now be set, can still be 0
 ;; ask for generation mode
 ;;      |-If random ask for seed
@@ -1603,6 +1714,7 @@ setupGrid
 
     mov R5, R0
     bl malloc
+
     mov R4, R0
     str R4, gridA
 
@@ -1610,7 +1722,7 @@ setupGrid
     bl malloc
     str R0, gridB
 
-    cmp R5, #0
+    cmp R0, #0      ;;If either grid failed to malloc
     beq setupGridFail
     cmp R4, #0
     beq setupGridFail
@@ -1654,6 +1766,9 @@ setuprandom
     mov R1, #4
     mov R2, #1
     bl getstring
+
+    cmp R0, #0
+    beq setupGridFail
 
     ldr R8, [R0]
 
@@ -1729,6 +1844,17 @@ dodraw
     strb R0, [R4, R3]
 
     add R5, R5, #1
+
+    ldrb R0, drawerase
+    cmp R0, #0
+    beq setuprowloop
+
+    mul R0, R6, R7      ;;I don't like having to do this every time :(
+    mov R0, R0, lsl #1
+    add R0, R0, #1
+    add R0, R0, R7
+    bl erase
+
     b setuprowloop
 
 dodrawfail
@@ -1768,7 +1894,15 @@ setupcollend
     b setuprowloop
 setuprowlend
     ;;grid has been setup
+    mov R0, #0 ;;success
+    b setupGridEnd
+
 setupGridFail
+    adrl R0, malloc_panic
+    swi 3
+
+    mov R0, #1 ;;fail!
+
 setupGridEnd
     pop {R14, R4-R10}
     mov R15, R14
@@ -1787,8 +1921,10 @@ drawgrid
 
     mov R6, R0
 
-    ldrb R4, width
-    ldrb R5, height
+    adrl R4, width
+    ldrb R4, [R4]
+    adrl R5, height
+    ldrb R5, [R5]
 
     mov R2, #0 ;;row
 drawgridrowloop
@@ -1806,15 +1942,18 @@ drawgridcolloop
     cmp R3, #2
     beq drawgridprintcurrent
     cmp R3, #1
-    ldreq R0, alive_c
-    ldrne R0, dead_c
+    adrleq R0, alive_c
+    ldreq R0, [R0]
+    adrlne R0, dead_c
+    ldrne R0, [R0]
 
     swi 0
 
     b drawgridcollcont
 
 drawgridprintcurrent
-    ldr R0, ptr_c
+    adrl R0, ptr_c
+    ldr R0, [R0]
     swi 0
 
 drawgridcollcont
@@ -1846,19 +1985,22 @@ printoptions
     adrl R0, optionsp_1
     swi 3
 
-    ldrb R0, width
+    adrl R0, width
+    ldrb R0, [R0]
     swi 4
 
     adrl R0, optionsp_2
     swi 3
 
-    ldrb R0, height
+    adrl R0, height
+    ldrb R0, [R0]
     swi 4
 
     adrl R0, optionsp_3
     swi 3
 
-    ldrb R0, slow_b
+    adrl R0, slow_b
+    ldrb R0, [R0]
     cmp R0, #1
     adrlne R0, off_msg
     adrleq R0, on_msg
@@ -1867,7 +2009,8 @@ printoptions
     adrl R0, optionsp_4
     swi 3
 
-    ldrb R0, erase_b
+    adrl R0, erase_b
+    ldrb R0, [R0]
     cmp R0, #1
     adrlne R0, off_msg
     adrleq R0, on_msg
@@ -2039,6 +2182,10 @@ getwid
     mov R1, #3
     mov R2, #1
     bl getstring
+
+    cmp R0, #0
+    beq customfail
+
     mov R4, R0
 
     bl strtoi
@@ -2085,6 +2232,10 @@ gethei
     mov R1, #3
     mov R2, #1
     bl getstring
+
+    cmp R0, #0
+    beq customfail
+
     mov R4, R0
 
     bl strtoi
@@ -2120,9 +2271,18 @@ getheiFail
 
     b gethei
 
+    b customend
+
+customfail
+    adrl R0, malloc_panic
+    swi 3
+
+    b customret
+
 customend
     bl printoptions
 
+customret
     pop {R14, R4}
     mov R15, R14 ;;RET
 
@@ -2740,6 +2900,7 @@ align
 
 ;;String defs -- The naming scheme is bad :(
 welcomemsg      defb "-----------Welcome to JCGOL in ARM32-----------", nl, 0
+align ;;WHY?!
 welcome2msg     defb "(N)ew board\n(L)oad a saved board\n(S)ettings\n(P)rint the heap\n(Q)uit", nl, 0
 mainchoicefail  defb "Invalid choice please enter 'n' for new board, 'l' for load a board, 's' to view settings, 'p' to view the heap, or 'q' to close. Not cases sensative", nl, 0
 mainendmsg      defb "Thank you for playing JCGOL for ARM32", nl, 0
@@ -2835,6 +2996,8 @@ printAll_m_f    defb "This is a Free block", nl, 0
 printAll_m_t    defb "This is a Taken block", nl, 0
 
 printHeap_end_m defb "Here's the heap at the end of the program!", nl, 0
+
+malloc_panic    defb "Malloc failed, cannot recover. Please consider reporting this to your nearest duck", nl, 0
 
 on_msg          defb "ON", 0
 off_msg         defb "OFF", 0
