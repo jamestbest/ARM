@@ -50,12 +50,52 @@
   
 max_addr    EQU  0x100000
 stack_size  EQU  0x10000
-nl      EQU  10
+nl          EQU  10
 backspace   EQU  8
 minBuffSize EQU  8
 enter       EQU  nl
 minSaveSize EQU  8
-sizeofSaveI EQU  12 ;;10 bytes + 2 bytes of padding
+sizeofSaveI EQU  12 ;;10 bytes + 2 bytes of padding to align to 4 byte boundry for arr
+
+b _start
+
+align
+;;[[note]]
+;;ldr instructions out of range (for pc-relative offsets?) of ldr (-4096/+4095?) use below
+;;  adrl Rx, label
+;;  ldr  Rx, [Rx]
+heaphead        defw 0x10000 ;;default start changed to addr of heapstart 
+
+;;Integer defs
+offsets         defw -1,-1,-1,0,-1,1,0,-1,0,1,1,-1,1,0,1,1 ;;[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]]
+
+;;Grid addresses
+gridA           defw 0
+gridB           defw 0
+
+;;options
+erase_b         defb 0
+slow_b          defb 0
+step_b          defb 0
+width           defb 18
+height          defb 18
+range_min       defb 1
+range_max       defb 30
+maxitters       defb 25
+drawerase       defb 1  ;;Should the draw mode erase previous
+
+alive_c         defb 'X'
+dead_c          defb '-'
+ptr_c           defb '#'
+
+;;default options
+erase_b_d       defb 0
+slow_b_d        defb 0
+step_b_d        defb 1
+width_d         defb 18
+height_d        defb 18
+
+align
 
 _start
     ;;prepare the stack
@@ -63,16 +103,13 @@ _start
     mov R14, #0 ;; allow for `returning` from _start
     push {R14}
 
-    ;;[[temp]] clean the heap
+    ;;[[temp]] clean the heap (zero out)
     bl heapclean
 
     ;;setup heap
     adrl R0, heapstart
-    str R0, heaphead
+    str R0, heaphead    ;;place address of last instruction (heapstart label) into the heaphead variable
     bl setupHeap
-
-    mov R0, #14
-    bl malloc
 
     bl main
 
@@ -252,6 +289,9 @@ settingsmenu
     adrl R0, s_m3
     swi 3
 
+    adrl R0, s_m4
+    swi 3
+
 changesetting
     adrl R0, s_m
     swi 3
@@ -287,12 +327,10 @@ changesettingserr
     b changesettingget
 
 changesettingscont
-    cmp R4, #6
+    cmp R4, #7
     bgt changesettingserr
 
     ;;now we have the index we can print the current value and prompt for a new one then loop back up to the getsetting
-
-    ;;No jump tables \(-__-)/
     cmp R4, #0
     beq changestep
 
@@ -314,6 +352,9 @@ changesettingscont
     cmp R4, #6
     beq changeitter
 
+    cmp R4, #7
+    beq changedrawerase
+
 changearr
 ;;generic for changedims and change range
 ;;INP in R0 is addr. for x
@@ -334,11 +375,15 @@ changearrget
     bl changearrgetvalidint
     mov R4, R0
 
+    bl newline
+
     adrl R0, currentasky
     swi 3
 
     bl changearrgetvalidint
     mov R5, R0
+
+    bl newline
 
     cmp R8, #1
     bne changearrset
@@ -393,7 +438,9 @@ changearrgetvalidintget
     beq changearrgetvalidintcont
 
 changearrgetvalidinterr
-    adrl R0, changearrgetvalidinterr
+    bl newline
+
+    adrl R0, changearrverr_m
     swi 3
 
     b changearrgetvalidintget
@@ -407,7 +454,9 @@ changearrgetvalidintcont
     bgt changearrgetvalidinterr
 
 changearrgetvalidintend
-    push {R14, R4-R8}
+    mov R0, R5
+
+    pop {R14, R4-R8}
     mov R15, R14
 
 printdims
@@ -536,18 +585,146 @@ changedims
     b changesetting
 
 changerange
-    adrl R0, range_min_d
-    adrl R1, range_max_d
+    adrl R0, range_min
+    adrl R1, range_max
     mov R2, #1
     bl changearr
 
     b changesetting
 
 changeicons
+;;print the current icons, ask for 3 characters in sequence for alive/dead/ptr
+    bl printicons
+
+    adrl R0, currenticons_a
+    swi 3
+
+    mov R0, #0
+    mov R1, #3
+    mov R2, #1
+    bl getstring
+
+    cmp R0, #0
+    beq changeiconsmallerr
+
+    ldrb R1, [R0, #0]
+    ldrb R2, [R0, #1]
+    ldrb R3, [R0, #2]
+
+    strb R1, alive_c
+    strb R2, dead_c
+    strb R3, ptr_c
+
+    bl newline
+
+    bl printicons
+
+    b changesetting
+
+changeiconsmallerr
+    adrl R0, getstringerr_m
+    swi 3
+
+    b changesetting
+
+printicons
+;;INP --
+;;OUT --
+    adrl R0, currenticons_1
+    swi 3
+
+    ldrb R0, alive_c
+    swi 0
+
+    ldr R0, =nl
+    swi 0
+
+    adrl R0, currenticons_2
+    swi 3
+
+    ldrb R0, dead_c
+    swi 0
+
+    ldr R0, =nl
+    swi 0
+
+    adrl R0, currenticons_3
+    swi 3
+
+    ldrb R0, ptr_c
+    swi 0
+
+    ldr R0, =nl
+    swi 0
+
+printiconsend
+    mov R15, R14
 
 changeitter
+    adrl R0, currentItters
+    swi 3
 
-    b mainmenu
+    ldrb R0, maxitters
+    swi 4
+
+    bl newline
+
+    adrl R0, getitters_m
+    swi 3
+
+changeitterget
+    ldr R0, =enter
+    mov R1, #-1
+    mov R2, #1
+    bl getstring
+
+    mov R4, R0
+
+    bl strtoi
+    mov R3, R0
+
+    mov R5, R0
+    mov R6, R1
+
+    mov R0, R4
+    bl free
+
+    bl newline
+
+    cmp R6, #0
+    bne changeittererr
+
+    adrl R0, maxitters
+    strb R5, [R0]
+
+    b changeitterend
+
+changeittererr
+    bl newline
+
+    adrl R0, changeittere_m
+    swi 3
+    b changeitterget
+changeitterend
+    adrl R0, currentItters
+    swi 3
+
+    ldrb R0, maxitters
+    swi 4
+
+    bl newline
+
+    b changesetting
+
+changedrawerase
+    adrl R0, drawerase
+    adrl R1, currentdraweras
+    bl changebool
+
+    b changesetting
+
+changedraweraseend
+    b changesetting
 
 printhelp
     adrl R0, helpinfomsg
@@ -1074,44 +1251,6 @@ strlenend
     mov R15, R14
 
 
-align
-;;;HAD TO MOVE HERE FOR THE RANGE OF LDR
-
-heaphead        defw 0x10000 ;;default start changed to addr of heapstart 
-
-;;Integer defs
-offsets         defw -1,-1,-1,0,-1,1,0,-1,0,1,1,-1,1,0,1,1 ;;[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]]
-
-;;Grid addresses
-gridA           defw 0
-gridB           defw 0
-
-;;options
-erase_b         defb 0
-slow_b          defb 0
-step_b          defb 0
-width           defb 18
-height          defb 18
-range_min       defb 1
-range_max       defb 30
-maxitters       defb 25
-
-;;default options
-erase_b_d       defb 0
-slow_b_d        defb 0
-step_b_d        defb 1
-width_d         defb 18
-height_d        defb 18
-range_min_d     defb 1
-range_max_d     defb 30
-maxitters_d     defb 25
-
-alive_c         defb 'X'
-dead_c          defb '-'
-ptr_c           defb '#'
-
-align
-
 strtoi
 ;;INP in R0 is the address of the string
 ;;OUT in R0 is the value created
@@ -1541,11 +1680,17 @@ dodraw
 
 dodrawsucc
     push {R0}
+    ldrb R0, drawerase
+    cmp R0, #0
+    beq dodrawsuccskiperase
+
     mul R0, R6, R7      ;;I don't like having to do this every time :(
     mov R0, R0, lsl #1
     add R0, R0, #1
     add R0, R0, R7
     bl erase
+    
+dodrawsuccskiperase
     pop {R0}
 
     sub R2, R0, #48 ;;could be xor?
@@ -1743,7 +1888,8 @@ setupCustom
     ldr R0, =nl
     swi 0
     movne R1, #0
-    strb R1, step_b
+    adrl R0, step_b
+    strb R1, [R0]
 
     mov R1, #1
 
@@ -1755,9 +1901,11 @@ setupCustom
     ldr R0, =nl
     swi 0
     movne R1, #0
-    strb R1, erase_b
+    adrl R0, erase_b
+    strb R1, [R0]
 
-    ldrb R0, step_b
+    adrl R0, step_b
+    ldrb R0, [R0]
     cmp R0, #1
     beq setupCustomskipslow
 
@@ -1775,13 +1923,39 @@ setupCustom
     ldr R0, =nl
     swi 0
     movne R1, #0
-    strb R1, slow_b
+    adrl R0, slow_b
+    strb R1, [R0] ;;[[maybe]] changed but not checked, go here if error
 
     b setupCustomDimsCheck
 
 setupCustomskipslow
     mov R0, #0
-    strb R0, slow_b
+    adrl R1, slow_b
+    strb R0, [R1]
+
+    b setupCustomDimsCheck
+
+printrange
+;;INP --
+;;OUT --
+    adrl R0, bracket_open
+    swi 3
+
+    adrl R0, range_min
+    ldrb R0, [R0]
+    swi 4
+
+    adrl R0, dash
+    swi 3
+
+    adrl R0, range_max
+    ldrb R0, [R0]
+    swi 4
+
+    adrl R0, b_close_colon
+    swi 3
+
+    mov R15, R14
 
 setupCustomDimsCheck
     cmp R4, #0
@@ -1789,10 +1963,12 @@ setupCustomDimsCheck
 
     adrl R0, askwid
     swi 3
-    
+
+    bl printrange
+
 getwid
     ldr R0, =enter
-    mov R1, #2
+    mov R1, #3
     mov R2, #1
     bl getstring
     mov R4, R0
@@ -1807,15 +1983,18 @@ getwid
 
     bl newline
 
-    ldrb R4, range_min
-    ldrb R5, range_max
+    adrl R4, range_min
+    ldrb R4, [R4]
+    adrl R5, range_max
+    ldrb R5, [R5]
 
     cmp R1, R5
     bgt getwidFail
     cmp R1, R4
     blt getwidFail
 
-    strb R1, width
+    adrl R0, width
+    strb R1, [R0]
 
     b getheisetup
 
@@ -1823,15 +2002,19 @@ getwidFail
     adrl R0, getwidfailmsg
     swi 3
 
+    bl printrange
+
     b getwid
 
 getheisetup
     adrl R0, askhei
     swi 3
 
+    bl printrange
+
 gethei
     ldr R0, =enter
-    mov R1, #2
+    mov R1, #3
     mov R2, #1
     bl getstring
     mov R4, R0
@@ -1846,21 +2029,26 @@ gethei
 
     bl newline
 
-    ldrb R4, range_min
-    ldrb R5, range_max
+    adrl R4, range_min
+    ldrb R4, [R4]
+    adrl R5, range_max
+    ldrb R5, [R5]
 
     cmp R1, R5
     bgt getheiFail
     cmp R1, R4
     blt getheiFail
 
-    strb R1, height
+    adrl R2, height
+    strb R1, [R2]
 
     b customend
 
 getheiFail
     adrl R0, getheifailmsg
     swi 3
+
+    bl printrange
 
     b gethei
 
@@ -1895,8 +2083,10 @@ updategrid
 
     push {R14, R4-R10}
 
-    ldrb R6, width
-    ldrb R7, height
+    adrl R6, width
+    ldrb R6, [R6]
+    adrl R7, height
+    ldrb R7, [R7]
 
     mov R8, R0
     mov R9, R1
@@ -1972,7 +2162,8 @@ countneighbours
     mov R8, R1
     mov R9, R2
     mov R10, #0 ;;R10 holds the total
-    ldrb R11, width;;R11 holds the width of the grid
+    adrl R11, width
+    ldrb R11, [R11];;R11 holds the width of the grid
 
     mov R3, #0
 
@@ -2025,11 +2216,13 @@ isinrange
     cmp R1, #0
     blt isinrangefail
 
-    ldrb R3, width
+    adrl R3, width
+    ldrb R3, [R3]
     cmp R1, R3
     bge isinrangefail
 
-    ldrb R3, height
+    adrl R3, height
+    ldrb R3, [R3]
     cmp R0, R3
     bge isinrangefail
 
@@ -2061,7 +2254,8 @@ setupHeap
 ;;NO OUT
     ;;we have the heapstart
     ;;the end of the heap will be 0x100000 (it will overlap with the stack :) )
-    ldr R0, heaphead ;;stores the mem addr of the start of the heap
+    adrl R0, heaphead
+    ldr R0, [R0] ;;stores the mem addr of the start of the heap
     ldr R1, =max_addr ;;stores the end of the heap
     ldr R2, =stack_size
     sub R1, R1, R2
@@ -2096,7 +2290,8 @@ malloc
     add R0, R0, R2
 
 mallignend
-    ldr R1, heaphead ;;stores a ptr to the first block
+    adrl R1, heaphead
+    ldr R1, [R1] ;;stores a ptr to the first block
     
 checkcrate
     ldr R2, [R1, #8] ;;Size of the crate
@@ -2189,7 +2384,8 @@ free
 
     push {R4-R8}
 
-    ldr R1, heaphead ;;R1 will hold the current
+    adrl R1, heaphead
+    ldr R1, [R1] ;;R1 will hold the current
     sub R0, R0, #12 ;;subtract sizeof(Crate) to get header pointer
 freeloop
     ldr R2, [R1, #0] ;;load the ptr to the next
@@ -2334,10 +2530,12 @@ stepslowwarning defb "Cannot have slow and step mode active at the same time, di
 savedchoice     defb "Return to menu? (n for continue sim) Y/n: ", 0
 askname         defb "Please enter a name for the grid: ", 0
 warneraseslow   defb "Erase mode is active it is recommended to also use slow mode", nl, 0
-askwid          defb "Please enter a width (1-30): ", 0
-askhei          defb "Please enter a height (1-30): ", 0
-getwidfailmsg   defb "Invalid width please enter a value between 1-30 inclusive: ", 0
-getheifailmsg   defb "Invalid height please enter a value between 1-30 inclusive: ", 0
+askwid          defb "Please enter a width (", 0
+dash            defb "-", 0
+b_close_colon   defb "): ",0
+askhei          defb "Please enter a height ", 0
+getwidfailmsg   defb "Invalid width please enter a value between ", 0
+getheifailmsg   defb "Invalid height please enter a value between ", 0
 
 ;;[[todo]] change to printing the current options
 usingDefault    defb "Using default values: dims=(18, 18) slowMode=Off eraseMode=Off stepMode=On", nl, 0
@@ -2349,7 +2547,7 @@ optionsp_3      defb ") slowMode=", 0 ;;OFF/ON
 optionsp_4      defb " eraseMode=", 0 ;;^
 optionsp_5      defb " stepMode=", 0  ;;^
 
-mainloopittsmsg defb "You've reached the max itterations before waiting for input. You can change this in settings. Press any key to continue", nl, 0
+mainloopittsmsg defb "You've reached the max itterations before waiting for input. You can change this in settings. Press any key to continue, 'q' to quit, and 's' to save the grid", nl, 0
 
 askgenoption    defb "Choose between (R)andom generation or (D)rawing the grid", 0
 setupGrdFailmsg defb "Invalid choice, use `R` for random generation and `d` for drawing the grid. Not case sensative: ", 0
@@ -2358,7 +2556,7 @@ drawinfomsg     defb "Using '1' and '0' choose the value of the current cell", n
 drawfailmsg     defb "Invalid input please enter 1 or 0: ", nl, 0
 gridfailmsg     defb "Grid was not properly initialised, consider smaller dims", nl, 0
 gridsavefail    defb "There was an error allocating memory for the grid save", nl, 0
-gridloadempty   defb "There are no saved grids, start a step mode sim and save the grid, return to main menu to load", nl, 0
+gridloadempty   defb "There are no saved grids, start a step mode sim and save the grid, returning to main menu", nl, 0
 gridloadpindex  defb "|index: ", 0
 gridloadpname   defb "|name: ", 0
 gridloadpwidth  defb "|width: ", 0
@@ -2373,10 +2571,12 @@ listgridmsg     defb "Listing all availible saved grids", nl, 0
 cutoff          defb "-----------------", nl, 0
 helpinfomsg     defb "[[add]]"
 settingsmsg     defb "[[add]]"
+changearrverr_m defb "Error invalid value given (1-255) inclusive. Re-enter: ", nl, 0
 
 s_m1            defb "Settings", nl, "|-[0] stepMode_d     - The following 4 settings are the default values for the options", nl, "|-[1] slowMode_d", nl, "|-[2] eraseMode_d", nl, "|-[3] Dims_d", nl, 0
 s_m2            defb "|-[4] range          - The range of values that the dims can have (1-255 && range_min < range_max)", nl, 0
 s_m3            defb "|-[5] Icons          - The characters printed for an alive/dead/ptr cell",nl, "`-[6] itters         - The number of itterations in the non-step version before it will wait for input", nl, 0
+s_m4            defb "|-[7] Drawing erase  - Bool for if when drawing the grid it should erase the previous one", nl, 0
 s_m             defb "Enter the index of the setting to edit or -1 to return to the menu (press enter to input): ", 0
 s_m_err         defb "Error invalid index. Re-enter: ", 0
 
@@ -2385,12 +2585,17 @@ currenterase    defb "Erase_d: ", 0
 currentstep     defb "Step_d: ", 0
 currentDims     defb "Dims: ", 0
 currentRange    defb "Range: ", 0
+currentItters   defb "Itters: ", 0
+currentdraweras defb "Erase when drawing: ", 0
 bracket_open    defb "(", 0
 comma_space     defb ", ", 0
 bracket_close   defb ")", 0
 currenticons_1  defb "Alive: ", 0
 currenticons_2  defb "Dead: ", 0
 currenticons_3  defb "Ptr: ", 0
+currenticons_a  defb "Enter 3 character (not seperated) for the values of the alive/dead/ptr characters: ", 0
+mallocerr_m     defb "Error getting memory from malloc", nl, 0
+getstringerr_m  defb "Error getting string, could be malloc error", nl, 0
 currentitter    defb "Itters: ", 0
 currentaskx     defb "Enter value for x: ", 0
 currentasky     defb "Enter value for y: ", 0
@@ -2399,6 +2604,8 @@ currentasknew_B defb "Enter new value (0 or 1): ", 0
 currentasknew_E defb "Error invalid re-enter: ", 0
 currentarrerr   defb "Invalid value entered re-enter: ", 0
 changearrsizmsg defb "Invalid, x >= y.", nl, 0
+changeittere_m  defb "Invalid itter value. Re-enter: ", nl, 0
+getitters_m     defb "Enter the max itterations (1-255): ", 0
 
 on_msg          defb "ON", 0
 off_msg         defb "OFF", 0
