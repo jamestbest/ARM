@@ -1673,6 +1673,19 @@ dodraw
     cmp R0, #'0'
     beq dodrawsucc
 
+    ldr R1, =enter
+    cmp R0, R1;;next line
+    bne dodrawfail
+
+    mla R3, R5, R6, R10 ;;R3 = row * width + col
+    mov R0, #0
+    strb R0, [R4, R3]
+
+    add R5, R5, #1
+    b setuprowloop
+
+dodrawfail
+
     adrl R0, drawfailmsg
     swi 3
 
@@ -1847,20 +1860,32 @@ setupOptions
 
     bne setupCustom
 
-    ldrb R0, erase_b_d
-    strb R0, erase_b
-    ldrb R0, slow_b_d
-    strb R0, slow_b
-    ldrb R0, step_b_d
-    strb R0, step_b
+    adrl R0, erase_b_d
+    ldrb R0, [R0]
+    adrl R1, erase_b
+    strb R0, [R1]
+
+    adrl R0, slow_b_d
+    ldrb R0, [R0]
+    adrl R1, slow_b
+    strb R0, [R1]
+
+    adrl R0, step_b_d
+    ldrb R0, [R0]
+    adrl R1, step_b
+    strb R0, [R1]
 
     cmp R4, #0
     beq setupOptionsDEnd
 
-    ldrb R0, width_d
-    strb R0, width
-    ldrb R0, height_d
-    strb R0, height
+    adrl R0, width_d
+    ldrb R0, [R0]
+    adrl R1, width
+    strb R0, [R1]
+    adrl R0, height_d
+    ldrb R0, [R0]
+    adrl R1, height
+    strb R0, [R1]
 
 setupOptionsDEnd
     bl printoptions
@@ -2552,8 +2577,8 @@ mainloopittsmsg defb "You've reached the max itterations before waiting for inpu
 askgenoption    defb "Choose between (R)andom generation or (D)rawing the grid", 0
 setupGrdFailmsg defb "Invalid choice, use `R` for random generation and `d` for drawing the grid. Not case sensative: ", 0
 askseed         defb "Enter 4 characters to be used as the seed: ", 0
-drawinfomsg     defb "Using '1' and '0' choose the value of the current cell", nl, 0
-drawfailmsg     defb "Invalid input please enter 1 or 0: ", nl, 0
+drawinfomsg     defb "Using '1' and '0' choose the value of the current cell. Use enter to go to next line", nl, 0
+drawfailmsg     defb "Invalid input please enter 1 or 0, or enter for next line: ", nl, 0
 gridfailmsg     defb "Grid was not properly initialised, consider smaller dims", nl, 0
 gridsavefail    defb "There was an error allocating memory for the grid save", nl, 0
 gridloadempty   defb "There are no saved grids, start a step mode sim and save the grid, returning to main menu", nl, 0
