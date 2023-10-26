@@ -402,6 +402,18 @@ changesettingscont
     bgt changesettingserr
 
     ;;now we have the index we can print the current value and prompt for a new one then loop back up to the getsetting
+    b getjump
+
+    jumps defw changestep, changeslow, changeerase, changedims, changerange, changeicons, changeitter, changedrawerase
+    align
+
+getjump
+    mov R4, R4, lsl #2
+    adr R0, jumps
+    add R0, R4, R0
+    ldr R4, [R0]
+    bx R4 ;[[flag]]
+
     cmp R4, #0
     beq changestep
 
@@ -483,6 +495,8 @@ changearrset
 
     bl printdims
 
+    b changearrend
+
 changearrmallocerr
     mov R0, #1
     b changearrendend
@@ -537,6 +551,8 @@ changearrgetvalidintcont
 
     cmp R5, #255
     bgt changearrgetvalidinterr
+
+    b changearrgetvalidintend
 
 changearrgvmallocerr
     mov R1, #1
@@ -790,7 +806,7 @@ changeitterget
     bl getstring
 
     cmp R0, #0
-    beq changeittergetcont
+    bne changeittergetcont
 
     adrl R0, malloc_panic
     swi 3
@@ -1845,7 +1861,8 @@ dodraw
 
     add R5, R5, #1
 
-    ldrb R0, drawerase
+    adrl R0, drawerase
+    ldrb R0, [R0]
     cmp R0, #0
     beq setuprowloop
 
@@ -1866,7 +1883,8 @@ dodrawfail
 
 dodrawsucc
     push {R0}
-    ldrb R0, drawerase
+    adrl R0, drawerase
+    ldrb R0, [R0]
     cmp R0, #0
     beq dodrawsuccskiperase
 
@@ -2624,6 +2642,16 @@ printAllLoop
     ldr R2, [R4, #4] ;;prev ptr
     ldr R3, [R4, #8] ;;size
 
+    cmp R4, R1
+    bne printAllLoopSkipWarning
+
+    adrl R0, printAll_m_e
+    swi 3
+
+    mov R5, #0
+
+printAllLoopSkipWarning
+
     ;;check if this is a free node
     cmp R5, R4
 
@@ -2680,10 +2708,19 @@ printFreeloop
     cmp R1, #0
     beq printFreelend
 
+    cmp R1, R4
+    beq printFreeErr
+
     mov R4, R1
     b printFreeloop
 
 printFreelend
+    b printFreeEnd
+
+printFreeErr
+    adrl R0, printFree_m_e
+    swi 3
+
 printFreeEnd
     pop {R14, R4-R8}
     mov R15, R14
@@ -2900,7 +2937,6 @@ align
 
 ;;String defs -- The naming scheme is bad :(
 welcomemsg      defb "-----------Welcome to JCGOL in ARM32-----------", nl, 0
-align ;;WHY?!
 welcome2msg     defb "(N)ew board\n(L)oad a saved board\n(S)ettings\n(P)rint the heap\n(Q)uit", nl, 0
 mainchoicefail  defb "Invalid choice please enter 'n' for new board, 'l' for load a board, 's' to view settings, 'p' to view the heap, or 'q' to close. Not cases sensative", nl, 0
 mainendmsg      defb "Thank you for playing JCGOL for ARM32", nl, 0
@@ -2990,10 +3026,12 @@ printfree_f_mad defb "Address: ", 0
 printfree_f_mnx defb "Next   : ", 0
 printfree_f_mpr defb "Prev   : ", 0
 printfree_f_msz defb "Size   : ", 0
+printFree_m_e   defb "[[!!]] Error circular Crate found. Ending printFree [[!!]]", nl, 0
 
 printAll_m      defb "Printing all elements in the heap", nl, 0
 printAll_m_f    defb "This is a Free block", nl, 0
 printAll_m_t    defb "This is a Taken block", nl, 0
+printAll_m_e    defb "[[!!]] Error circular crate found, NO LONGER PRINTING FREE CLASSIFIERS [[!!]]", nl, 0
 
 printHeap_end_m defb "Here's the heap at the end of the program!", nl, 0
 
