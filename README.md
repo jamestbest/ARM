@@ -19,7 +19,7 @@ This is my second rendition of John Conway's Game of life.
 #### Malloc & Free
 The heap is a contiguous area in memory from the end of the code section to the MAX_ADDR (0x100000) - STACK_SIZE (0x10000) (0xF0000), it's ~960KB in size (varies based as there is metadata for the memory attatched)  
 There is a free list of memory locations on the heap stored as a linked list, unlike in Comodo this linked list does not store both the free and claimed memory in the heap, just the free. This makes it more efficient in terms of finding free blocks, but harder to debug.
-Although there is currently no performance benifit as the large free crate is always at the start of the free list, and because malloc doesn't try to find the 'best' block (i.e. size > requested but lowest size overall) it will always select the large block. This leads
+Although there is currently no performance benefit as the large free crate is always at the start of the free list, and because malloc doesn't try to find the 'best' block (i.e. size > requested but lowest size overall) it will always select the large block. This leads
 to fragmentation of the heap and is something I want to change.
 
 #### Saving & loading
@@ -49,9 +49,11 @@ then the values are copied over.
 
 ### Todo
   - Fix the heap fragmentation
+  - Find and Fix free issue that create circular Crates
+  - Add memset for malloc so that its always 0 then remove the heapClean
 
 ### Maybe
-The main thing I've been thinking about adding is to designate an area of memory as 'non-volatile' this is of course only non-volatile between runs of the program no of KMD. This could then store the saved grids.  
+The main thing I've been thinking about adding is to designate an area of memory as 'non-volatile' this is of course only non-volatile between runs of the program not of KMD. This could then store the saved grids.  
 It'd need someway to keep track of the stored information, a function to save to that area, one to read from it ect.  
 It's not imperative and wouldn't really add anything to the game, but it would be cool to try and add.
 
