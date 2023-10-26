@@ -245,7 +245,7 @@ mainloopdostep
     mov R1, R4 ;;give the active grid
     bl step
     cmp R0, #0
-    beq mainloopskipstep
+    beq mainloopskipslow
     
     ;;If R0 is #1 then free and go to the main menu
     ;;free the current grid
@@ -264,7 +264,7 @@ mainloopdostep
 mainloopskipstep
     cmp R6, #1
     bleq slow
-
+mainloopskipslow
     cmp R7, #1
     moveq R0, R9
     bleq erase
@@ -449,8 +449,8 @@ printcurrentsettings
     adrl R0, currentDims
     swi 3
 
-    adrl R0, width
-    adrl R1, height
+    adrl R0, width_d
+    adrl R1, height_d
     bl printcurrentsettinglist
 
     adrl R0, comma_space
@@ -1194,17 +1194,11 @@ loadboardmain
     mov R2, R9  ;;bytes is in R9 already from width and height
     bl memcpy
 
-    ldr R0, gridA
-    bl free
-
     str R8, gridA
 
     ;;also need to check if the old gridB is big enough --NO!
     ;;The old grid has been freed when returning to the main menu so we must make a new one
 loadboardmallocB
-    ldr R0, gridB
-    bl free
-
     mov R0, R9
     bl malloc
 
@@ -3210,7 +3204,7 @@ askhei          defb "Please enter a height ", 0
 getwidfailmsg   defb "Invalid width please enter a value between ", 0
 getheifailmsg   defb "Invalid height please enter a value between ", 0
 stepmode_m      defb "Step mode is active. After each itteration of the grid press any key to continue to the next or (q)uit to main menu, or (s)ave the current grid", nl, 0
-
+align ;;WHY?!
 optionsp_1      defb "Current options: dims=(", 0 ;;width
 optionsp_2      defb ", ", 0 ;;height
 optionsp_3      defb ") slowMode=", 0 ;;OFF/ON
@@ -3241,12 +3235,13 @@ listgridmsg     defb "Listing all availible saved grids", nl, 0
 cutoff          defb "-----------------", nl, 0
 changearrverr_m defb "Error invalid value given (1-255) inclusive. Re-enter: ", nl, 0
 
-s_m1            defb "Settings", nl, "|-[0] stepMode_d     - The following 4 settings are the default values for the options", nl, "|-[1] slowMode_d", nl, "|-[2] eraseMode_d", nl, "|-[3] Dims_d", nl, 0
+s_m1            defb "Settings", nl, "|-[0] stepMode_d     - The following 4 settings are the default values for the options", nl, "|-[1] slowMode_d     - Slow mode is ignored if step mode is ON", nl, "|-[2] eraseMode_d", nl, "|-[3] Dims_d", nl, 0
 s_m2            defb "|-[4] range          - The range of values that the dims can have (1-255 && range_min < range_max)", nl, 0
 s_m3            defb "|-[5] Icons          - The characters printed for an alive/dead/ptr cell",nl, "|-[6] itters         - The number of itterations in the non-step version before it will wait for input", nl, 0
 s_m4            defb "`-[7] Drawing erase  - Bool for if when drawing the grid it should erase the previous one", nl, 0
 s_m             defb "Enter the index of the setting to edit or -1 to return to the menu (press enter to input): ", 0
 s_m_err         defb "Error invalid index. Re-enter: ", 0
+align
 
 currentslow     defb "Slow_d: ", 0
 currenterase    defb "Erase_d: ", 0
@@ -3265,8 +3260,8 @@ currenticons_a  defb "Enter 3 character (not seperated) for the values of the al
 mallocerr_m     defb "Error getting memory from malloc", nl, 0
 getstringerr_m  defb "Error getting string, could be malloc error", nl, 0
 currentitter    defb "Itters: ", 0
-currentaskx     defb "Enter value for x: ", 0
-currentasky     defb "Enter value for y: ", 0
+currentaskx     defb "Enter value for x (input with enter): ", 0
+currentasky     defb "Enter value for y (input with enter): ", 0
 currentasknew   defb "Enter new value: ", 0
 currentasknew_B defb "Enter new value (0 or 1): ", 0
 currentasknew_E defb "Error invalid re-enter: ", 0
