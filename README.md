@@ -18,9 +18,8 @@ This is my second rendition of John Conway's Game of life.
 ### BTS
 #### Malloc & Free
 The heap is a contiguous area in memory from the end of the code section to the MAX_ADDR (0x100000) - STACK_SIZE (0x10000) (0xF0000), it's ~960KB in size (varies based as there is metadata for the memory attatched)  
-There is a free list of memory locations on the heap stored as a linked list, unlike in Comodo this linked list does not store both the free and claimed memory in the heap, just the free. This makes it more efficient in terms of finding free blocks, but harder to debug.
-Although there is currently no performance benefit as the large free crate is always at the start of the free list, and because malloc doesn't try to find the 'best' block (i.e. size > requested but lowest size overall) it will always select the large block. This leads
-to fragmentation of the heap and is something I want to change.
+There is a free list of memory locations on the heap stored as a linked list, unlike in Comodo this linked list does not store both the free and claimed memory in the heap, just the free. This makes it more efficient in terms of finding free blocks, but harder to debug.  
+Malloc will attempt to find the 'best' free Crate i.e. the smallest crate in the free list where crate.size is >= requested bytes. This helps to reduce the heap fragmentation.
 
 #### Saving & loading
 In main there is a local variable we'll call SaveOverviewStruct, this holds the gridInfoStruct* array, the current position in that array that new grids should be added to and a max size.
@@ -48,8 +47,6 @@ then the values are copied over.
   - After adding the main game that was basically a better version of JCGOL.s I decided to add saving & loading and later settings. This wasn't in the original scope at all and made refactoring much harder
 
 ### Todo
-  - Fix the heap fragmentation
-  - Find and Fix free issue that create circular Crates
   - Add memset for malloc so that its always 0 then remove the heapClean
 
 ### Maybe
