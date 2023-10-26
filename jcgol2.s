@@ -81,7 +81,7 @@ height          defb 18
 range_min       defb 1
 range_max       defb 30
 maxitters       defb 25
-drawerase       defb 1  ;;Should the draw mode erase previous
+drawerase_b     defb 1  ;;Should the draw mode erase previous
 
 alive_c         defb 'X'
 dead_c          defb '-'
@@ -296,6 +296,36 @@ mainEnd
     swi 3
 
     bl printHeap
+
+assertheapempty     ;;this should maybe be in _start?
+    ldr R0, heaphead
+    ldr R1, [R0, #0] ;;next
+    ldr R2, [R0, #8] ;;size
+
+    cmp R1, #0
+    bne assertionfail
+
+    add R2, R2, #12
+    add R2, R2, R0
+
+    adrl R0, max_addr
+    adrl R1, stack_size
+    sub R0, R0, R1
+
+    cmp R0, R2
+    bne assertionfail
+
+    b assertionsuccess
+
+assertionfail
+    adrl R0, heapNotEmpty_m
+    swi 3
+
+    b mainEndEnd
+
+assertionsuccess
+    adrl R0, heapEmpty_m
+    swi 3
 mainEndEnd
     sub sp, fp, #24 ;;???
     pop {R14, R4-R10}
@@ -345,11 +375,158 @@ mainfreeend
     pop {R14, R4-R10}
     mov R15, R14
 
-    ;;Save info struct
-;;  -address of grid [4 BYTES]
-;;  -char* to the name [4 BYTES]
-;;  -width of grid (1 BYTE)
-;;  -height of grid (1 BYTE)
+printcurrentsettinglist
+;;INP in R0 is x addr
+;;INP in R1 is y addr
+    mov R2, R0
+
+    adrl R0, bracket_open
+    swi 3
+
+    ldrb R0, [R2]
+    swi 4
+
+    adrl R0, comma_space
+    swi 3
+
+    ldrb R0, [R1]
+    swi 4
+
+    adrl R0, bracket_close
+    swi 3
+
+    mov R15, R14
+
+
+printcurrentsettings
+;;INP --
+;;OUT --
+    push {R14}
+
+    adrl R0, currentset_m
+    swi 3
+
+    ;;STEP
+    adrl R0, currentstep
+    swi 3
+
+    ldrb R1, step_b_d
+    cmp R1, #0
+    adrleq R0, off_msg
+    adrlne R0, on_msg
+    swi 3
+
+    adrl R0, comma_space
+    swi 3
+
+    ;;SLOW
+    adrl R0, currentslow
+    swi 3
+
+    ldrb R1, slow_b_d
+    cmp R1, #0
+    adrleq R0, off_msg
+    adrlne R0, on_msg
+    swi 3
+
+    adrl R0, comma_space
+    swi 3
+
+    ;;ERASE
+    adrl R0, currenterase
+    swi 3
+
+    ldrb R1, erase_b_d
+    cmp R1, #0
+    adrleq R0, off_msg
+    adrlne R0, on_msg
+    swi 3
+
+    adrl R0, comma_space
+    swi 3
+
+    ;;DIMS
+    adrl R0, currentDims
+    swi 3
+
+    adrl R0, width
+    adrl R1, height
+    bl printcurrentsettinglist
+
+    adrl R0, comma_space
+    swi 3
+
+    ;;RANGE
+    adrl R0, currentRange
+    swi 3
+
+    adrl R0, range_min
+    adrl R1, range_max
+    bl printcurrentsettinglist
+
+    adrl R0, comma_space
+    swi 3
+
+    ;;Alive_c
+    adrl R0,  currenticons_1
+    swi 3
+
+    ldrb R0, alive_c
+    swi 0
+
+    adrl R0, comma_space
+    swi 3
+
+    ;;Dead_c
+    adrl R0, currenticons_2
+    swi 3
+
+    ldrb R0, dead_c
+    swi 0
+
+    adrl R0, comma_space
+    swi 3
+
+    ;;Ptr_c
+    adrl R0, currenticons_3
+    swi 3
+
+    ldrb R0, ptr_c
+    swi 0
+
+    adrl R0, comma_space
+    swi 3
+
+    ;;Itters
+    adrl R0, currentItters
+    swi 3
+
+    ldrb R0, maxitters
+    swi 4
+
+    adrl R0, comma_space
+    swi 3
+
+    ;;Draw erase
+    adrl R0, currentdraweras
+    swi 3
+
+    ldrb R1, drawerase_b
+    cmp R1, #0
+    adrleq R0, off_msg
+    adrlne R0, on_msg
+    swi 3
+
+    ;;END
+    adrl R0, bracket_close
+    swi 3
+
+    ldr R0, =nl
+    swi 0
+
+    pop {R14}
+    mov R15, R14
+
 
 settingsmenu
 ;;https://media.giphy.com/media/jOpLbiGmHR9S0/giphy.gif
@@ -367,6 +544,8 @@ settingsmenu
     swi 3
 
 changesetting
+    bl printcurrentsettings
+
     adrl R0, s_m
     swi 3
 
@@ -866,7 +1045,7 @@ changeitterend
     b changesetting
 
 changedrawerase
-    adrl R0, drawerase
+    adrl R0, drawerase_b
     adrl R1, currentdraweras
     bl changebool
 
@@ -878,6 +1057,17 @@ changedraweraseend
 newboard
     mov R0, #1;;should get dims
     bl setupOptions
+
+    adrl R0, step_b
+    ldrb R0, [R0]
+
+    cmp R0, #1
+    bne newboardcont
+
+    adrl R0, stepmode_m
+    swi 3
+
+newboardcont
 
     bl setupGrid
 
@@ -1727,8 +1917,10 @@ setupGrid
     push {R14, R4-R10}
 
     ;;generate the main grid
-    ldrb R6, width
-    ldrb R7, height
+    adrl R6, width
+    ldrb R6, [R6]
+    adrl R7, height
+    ldrb R7, [R7]
 
     mul R0, R6, R7 ;;width * height = num of bytes to malloc
 
@@ -1736,11 +1928,13 @@ setupGrid
     bl malloc
 
     mov R4, R0
-    str R4, gridA
+    adrl R1, gridA
+    str R4, [R1]
 
     mov R0, R5
     bl malloc
-    str R0, gridB
+    adrl R1, gridB
+    str R0, [R1]
 
     cmp R0, #0      ;;If either grid failed to malloc
     beq setupGridFail
@@ -1865,7 +2059,7 @@ dodraw
 
     add R5, R5, #1
 
-    adrl R0, drawerase
+    adrl R0, drawerase_b
     ldrb R0, [R0]
     cmp R0, #0
     beq setuprowloop
@@ -1887,7 +2081,7 @@ dodrawfail
 
 dodrawsucc
     push {R0}
-    adrl R0, drawerase
+    adrl R0, drawerase_b
     ldrb R0, [R0]
     cmp R0, #0
     beq dodrawsuccskiperase
@@ -2539,7 +2733,18 @@ malloc
     ;;1001010 & 0111 = 0000010 ;2
     ;;if 0 goto alignend
     ;;1001010 + (8 - 2)
-    push {R4}
+
+;;[[NEW]] In order to reduce heap fragmentation I'm going to find the 'best' free crate
+;;bestCrateAddr = 0
+;;bestCrateSize = INT_MAX
+;;currentCrate = heapstart
+;;While (currentCrate != 0)
+;;  if (currentCrate.size >= requestedSize && bestCrateSize > currentCrate.size)
+;;      bestCrateSize = currentCrate.size
+;;      bestCrateAddr = currentCrate.addr
+;;  currentCrate = currentCrate.next
+
+    push {R4-R8}
 
     and R1, R0, #0b0111
     cmp R1, #0
@@ -2551,24 +2756,45 @@ malloc
 mallignend
     adrl R1, heaphead
     ldr R1, [R1] ;;stores a ptr to the first block
+
+    mov R5, #0 ;;bestCrateAddr
+    mov R6, #-1 ;;bestCrateSize
     
 checkcrate
     ldr R2, [R1, #8] ;;Size of the crate
-    cmp R0, R2 ;;bytes needed - bytes in crate
-    ble foundcrate
+    cmp R2, R0 ;;bytes in crate - bytes needed
+
+    blo nextcrate
+
+    cmp R6, R2 ;;bestCrateSize - currentCrate.size
+    blo nextcrate
+
+    mov R6, R2
+    mov R5, R1
+
+nextcrate
     ldr R2, [R1, #0] ;;get the next ptr
     cmp R2, #0
-    beq nocrates
+    beq cratelend
     mov R1, R2 ;;swap the current crate with the next crate
     b checkcrate
+
+cratelend
+    cmp R5, #0
+    beq nocrates
+
+    mov R1, R5 ;;for legacy reasons it should be in R1 
+
+    b foundcrate
+
 nocrates
     mov R0, #0
     b mallocEnd
 
 foundcrate
     ;;Once a crate that we can use has been found we need to either split the crate or use the crate
-    ;;We should use the whole crate only when its size < bytesneeded + CrateHeader + 8
-    ;;This would give the edge case crate 8 bytes
+        ;;We should use the whole crate only when its size < bytesneeded + CrateHeader + 8
+    ;;This would give the edge case crate 8 bytes [[flag]]
     
     ;;R1 holds the found crate ptr
     ;;R0 is the bytes requested and aligned
@@ -2612,10 +2838,15 @@ usecrate
     str R3, [R2, #4] ;;Store c1 into c3's previous
     str R2, [R3, #0] ;;Store c3 into c1's next
 
-    mov R0, R1 ;;move the found crate's address into the return register ;;The crate header is no longer needed
+    mov R0, #0
+    str R0, [R1, #0] ;;clear next
+    str R0, [R1, #4] ;;clear prev (for debugging uses)
+
+    mov R0, R1 ;;move the found crate's address into the return register
+    add R0, R0, #12
 
 mallocEnd
-    pop {R4}
+    pop {R4-R8}
     mov R15, R14
 
 
@@ -2978,6 +3209,7 @@ b_close_colon   defb "): ",0
 askhei          defb "Please enter a height ", 0
 getwidfailmsg   defb "Invalid width please enter a value between ", 0
 getheifailmsg   defb "Invalid height please enter a value between ", 0
+stepmode_m      defb "Step mode is active. After each itteration of the grid press any key to continue to the next or (q)uit to main menu, or (s)ave the current grid", nl, 0
 
 optionsp_1      defb "Current options: dims=(", 0 ;;width
 optionsp_2      defb ", ", 0 ;;height
@@ -3011,8 +3243,8 @@ changearrverr_m defb "Error invalid value given (1-255) inclusive. Re-enter: ", 
 
 s_m1            defb "Settings", nl, "|-[0] stepMode_d     - The following 4 settings are the default values for the options", nl, "|-[1] slowMode_d", nl, "|-[2] eraseMode_d", nl, "|-[3] Dims_d", nl, 0
 s_m2            defb "|-[4] range          - The range of values that the dims can have (1-255 && range_min < range_max)", nl, 0
-s_m3            defb "|-[5] Icons          - The characters printed for an alive/dead/ptr cell",nl, "`-[6] itters         - The number of itterations in the non-step version before it will wait for input", nl, 0
-s_m4            defb "|-[7] Drawing erase  - Bool for if when drawing the grid it should erase the previous one", nl, 0
+s_m3            defb "|-[5] Icons          - The characters printed for an alive/dead/ptr cell",nl, "|-[6] itters         - The number of itterations in the non-step version before it will wait for input", nl, 0
+s_m4            defb "`-[7] Drawing erase  - Bool for if when drawing the grid it should erase the previous one", nl, 0
 s_m             defb "Enter the index of the setting to edit or -1 to return to the menu (press enter to input): ", 0
 s_m_err         defb "Error invalid index. Re-enter: ", 0
 
@@ -3043,6 +3275,10 @@ changearrsizmsg defb "Invalid, x >= y.", nl, 0
 changeittere_m  defb "Invalid itter value. Re-enter: ", nl, 0
 getitters_m     defb "Enter the max itterations (1-255): ", 0
 
+currentset_m    defb "Current settings: (", 0
+;;Current settings (stepMode_d: On/Off  slowMode_d: On/Off  eraseMode_d: On/Off  Dims_d:(x,y)
+;;                  Range:(x,y)  Alive_c:X  Dead_c:Y  Ptr_c:Z  Itters:xx  EwD:On/Off)
+
 ;;debug for heap
 printFree_m     defb "Printing free list", nl
 printfree_f_m   defb "Found a new free item", nl, 0
@@ -3060,6 +3296,8 @@ printAll_m_e    defb "[[!!]] Error circular crate found, NO LONGER PRINTING FREE
 printHeap_end_m defb "Here's the heap at the end of the program!", nl, 0
 
 malloc_panic    defb "Malloc failed, cannot recover. Please consider reporting this to your nearest duck", nl, 0
+heapNotEmpty_m  defb "Heap is not empty i.e. freelist[0].next != 0 || freelist[0].size + freelist[0].addr + 12 != HEAPEND\nIf you are not James please regard this as an intended feature. If you are James please fix :)", nl, 0
+heapEmpty_m     defb "Heap is empty! SUCCESS!", nl, 0
 free_m_addr     defb "Attempting to free address: ", 0
 free_m_zero     defb "[[!!]] Info: Free was given a null ptr", nl, 0
 
