@@ -251,8 +251,13 @@ mainloopdostep
     ;;free the current grid
     ldr R0, gridA
     bl free
+    mov R1, #0
+    str R1, gridA
+
     ldr R0, gridB
     bl free
+    mov R1, #0
+    str R1, gridB
 
     b mainmenu
 
@@ -300,12 +305,13 @@ mainfree
 ;;INP in R0 is the saveInfoStruct
 ;;OUT --
 ;;free all of the memory that we used i.e. any saved grids, saved grid names, and the arr of saved grids
-    push {R14, R4-R8}
+    push {R14, R4-R10}
 
     ldr R5, [R0, #8] ;;get the current index this is the number of elements in the arr
     ldr R6, [R0, #0] ;;This is the array address
     ldr R7, =sizeofSaveI
 
+    mov R10, R0
     mov R4, #0
 mainfreeloop
     ;;loop through the savedGrids
@@ -314,12 +320,16 @@ mainfreeloop
 
     mla R8, R4, R7, R6
     ldr R0, [R8, #0] ;;get the address of the grid
-    ldr R8, [R8, #4] ;;get the address of the char*
+    ldr R9, [R8, #4] ;;get the address of the char*
 
     bl free
+    mov R0, #0
+    str R0, [R8, #0]
 
-    mov R0, R8
+    mov R0, R9
     bl free
+    mov R0, #0
+    str R0, [R8, #4]
 
     add R4, R4, #1
     b mainfreeloop
@@ -328,9 +338,11 @@ mainfreelend
     ;;free the array
     mov R0, R6
     bl free
+    mov R0, #0
+    str R0, [R10, #0]
 
 mainfreeend
-    pop {R14, R4-R8}
+    pop {R14, R4-R10}
     mov R15, R14
 
     ;;Save info struct
@@ -997,16 +1009,8 @@ loadboardmain
 
     str R8, gridA
 
-    ;;also need to check if the old gridB is big enough
-    ldrb R8, width
-    ldrb R10, height
-    cmp R6, R8
-    bne loadboardmallocB
-    cmp R7, R10
-    bne loadboardmallocB
-
-    b loadboardskipB
-
+    ;;also need to check if the old gridB is big enough --NO!
+    ;;The old grid has been freed when returning to the main menu so we must make a new one
 loadboardmallocB
     ldr R0, gridB
     bl free
@@ -2329,6 +2333,11 @@ updategrid
 
     push {R14, R4-R10}
 
+    cmp R0, #0
+    beq updategridfail
+    cmp R1, #0
+    beq updategridfail
+
     adrl R6, width
     ldrb R6, [R6]
     adrl R7, height
@@ -2381,6 +2390,10 @@ updategridccollend
     mov R5, #0
     add R4, R4, #1
     b updategridrowloop
+
+updategridfail
+    adrl R0, updatergrid_m_f
+    swi 3
 
 updategridrowlend
 updategridend
@@ -2806,6 +2819,9 @@ free
 
     push {R14, R4-R8}
 
+    cmp R0, #0
+    beq freeEndZero
+
     adrl R1, heaphead
     ldr R1, [R1] ;;R1 will hold the current
     sub R0, R0, #12 ;;subtract sizeof(Crate) to get header pointer
@@ -2920,14 +2936,21 @@ merge
     ;;i.e. right->next->prev = left
 
     ldr R4, [R2, #0] ;;right->next
-    cmp R4, R1
+    cmp R4, R1      ;;If right->next == current {left->next = 0} else {left->next = right->next}
     strne R4, [R1, #0] ;;left->next = right->next
+    moveq R4, #0       ;;This shouldn't ever be true? how could rnext point to left? left<->mid?<->right<->rnext
+    streq R4, [R1, #0] ;;left->next = 0
 
     cmp R4, #0
     strne R1, [R4, #4] ;;right->next->prev = left
 
 mergeNew
     ;;The crate has already been setup with its ptrs and had its size as well so don't need to do anything
+    b freeEnd
+
+freeEndZero
+    adrl R0, free_m_zero
+    swi 3
 
 freeEnd
     pop {R14, R4-R8}
@@ -2937,6 +2960,7 @@ align
 
 ;;String defs -- The naming scheme is bad :(
 welcomemsg      defb "-----------Welcome to JCGOL in ARM32-----------", nl, 0
+align ;;WHY WHY?!?!??!?!
 welcome2msg     defb "(N)ew board\n(L)oad a saved board\n(S)ettings\n(P)rint the heap\n(Q)uit", nl, 0
 mainchoicefail  defb "Invalid choice please enter 'n' for new board, 'l' for load a board, 's' to view settings, 'p' to view the heap, or 'q' to close. Not cases sensative", nl, 0
 mainendmsg      defb "Thank you for playing JCGOL for ARM32", nl, 0
@@ -3036,6 +3060,10 @@ printAll_m_e    defb "[[!!]] Error circular crate found, NO LONGER PRINTING FREE
 printHeap_end_m defb "Here's the heap at the end of the program!", nl, 0
 
 malloc_panic    defb "Malloc failed, cannot recover. Please consider reporting this to your nearest duck", nl, 0
+free_m_addr     defb "Attempting to free address: ", 0
+free_m_zero     defb "[[!!]] Info: Free was given a null ptr", nl, 0
+
+updatergrid_m_f defb "Failed to update grids, one or more are null", nl, 0
 
 on_msg          defb "ON", 0
 off_msg         defb "OFF", 0
