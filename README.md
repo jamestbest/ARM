@@ -29,8 +29,7 @@ which is added to the SaveOverviewStruct's array. If when adding another grid it
 
 When loading all of the available GridInfoStructs are printing with their corresponding information.
 
-When the user selects a grid all of the information is loaded i.e. width, height and if the dims of the toLoad grid are the same as the old grid then the values are just copied over, otherwise the old grid is freed and another grid of correct dims is allocated and 
-then the values are copied over.
+When the user selects a grid all of the information is loaded i.e. width, height and because the old grids are freed at this point (they are freed on return to main menu) two new grids are allocated and the saved grid info is copied to the active grid.
 
 ### What went well
   - There was a point before adding all the un-thought-out features where the code was fairly well structured
