@@ -103,7 +103,7 @@ _start
     push {R14}
 
     ;;[[temp]] clean the heap (zero out)
-    bl heapclean
+    ;;bl heapclean
 
     ;;setup heap
     adrl R0, heapstart
@@ -603,7 +603,7 @@ getjump
     adr R0, jumps
     add R0, R4, R0
     ldr R4, [R0]
-    bx R4 ;[[flag]]
+    bx R4
 
     cmp R4, #0
     beq changestep
@@ -1242,7 +1242,7 @@ newline
     mov R15, R14
 
 step
-;;INP in R0 is the gridHeaderStruct ptr [[todo]]
+;;INP in R0 is the gridHeaderStruct ptr
 ;;INP in R1 is the active grid ptr
 ;;OUT in R0 is 1 if should return to main menu, else 0.
 
@@ -1291,7 +1291,8 @@ stepcont
 
     swi 1
     swi 0
-    cmp R0, #'Y'
+    orr R0, R0, #32
+    cmp R0, #'y'
 
     ldr R0, =nl
     swi 0
@@ -1964,6 +1965,12 @@ setupdrawing
     adrl R0, drawinfomsg
     swi 3
 
+    ;;clean the grid
+    mov R0, R4
+    mla R1, R6, R7, R4 ;; width * height = bytes inside + address = endAddr. 
+    mov R2, #0
+    bl memset ;;The grid may have been from a previous malloc -> free and so there would be data still stored there
+
     b setupstart
 
 setuprandom
@@ -2250,7 +2257,8 @@ setupOptions
     swi 3
     swi 1   ;;get character answer
     swi 0
-    cmp R0, #'Y'
+    orr R0, R0, #32
+    cmp R0, #'y'
     ldr R0, =nl
     swi 0
 
@@ -2305,7 +2313,8 @@ setupCustom
     swi 3
     swi 1
     swi 0 
-    cmp R0, #'Y' 
+    orr R0, R0, #32
+    cmp R0, #'y' 
     ldr R0, =nl
     swi 0
     movne R1, #0
@@ -2318,7 +2327,8 @@ setupCustom
     swi 3
     swi 1
     swi 0
-    cmp R0, #'Y'
+    orr R0, R0, #32
+    cmp R0, #'y'
     ldr R0, =nl
     swi 0
     movne R1, #0
@@ -2339,8 +2349,9 @@ setupCustom
     adrl R0, askslow
     swi 3
     swi 1
-    swi 0 
-    cmp R0, #'Y' 
+    swi 0
+    orr R0, R0, #32
+    cmp R0, #'y' 
     ldr R0, =nl
     swi 0
     movne R1, #0
@@ -3181,6 +3192,109 @@ freeEnd
     pop {R14, R4-R8}
     mov R15, R14
 
+memset
+;;INP in R0 is startAddr.
+;;INP in R1 is endAddr.
+;;INP in R2 is the BYTE value to write
+;;endAddr. is NOT inclusive i.e. the value at endAddr. will not be overwritten
+
+    push {R14, R4-R8}
+
+    mov R4, R0
+    mov R5, R1
+    mov R6, R2
+
+;;align to 4 bytes by writing bytes
+;;write as many 4 bytes as possible
+;;write remaining bytes
+;;
+;;To get word to write
+;;x = x << 8 orr x
+;;x = x << 16 orr x
+    sub R7, R5, R4 ;;find the number of bytes to write
+    cmp R7, #16
+    bls memsetjustwritebytes ;;if we only need to write 16 bytes or less then don't worry about any of this stuff
+
+    mov R1, #0b11  ;;e.g. addr: 1000    1011    1010    1001
+    eor R0, R0, R1 ;;      eor  0011    0011    0011    0011
+                   ;;           1011    1000    1001    1010
+    add R0, R0, #1 ;;           1100    1001    1010    1011
+    and R2, R0, R1 ;;           0000    0001    0010    0011
+    ;; R2 should be the number of bytes to write to align
+
+    mov R0, #0
+memsetalignloop
+    cmp R0, R2
+    beq memsetalignlend
+
+    strb R6, [R4, R0]
+    add R0, R0, #1
+    b memsetalignloop
+
+memsetalignlend
+    add R4, R4, R0 ;;inc the start address to the aligned boundry
+    sub R7, R7, R0 ;;sub from bytes 2 write the amount we've written
+    ;;find the number of words to write
+
+    and R3, R7, #-4 ;;remove last 2 bytes this is the number of words to write (Its still a byte count)
+
+    ;;x = x << 8 orr x
+    ;;x = x << 16 orr x
+
+    mov R1, R6, lsl #8
+    orr R1, R1, R6
+
+    mov R2, R1, lsl #16
+    orr R2, R2, R1
+
+    mov R0, #0 ;;count
+memsetwritewordsloop
+    cmp R0, R3
+    beq memsetwritewordslend
+
+    str R2, [R4, R0]
+
+    add R0, R0, #4
+    b memsetwritewordsloop
+
+memsetwritewordslend
+    add R4, R4, R3 ;;inc by the bytes we just wrote
+    and R3, R7, #3 ;;find the remaining bytes to write
+
+    mov R0, #0
+memsetwritebytesloop
+    cmp R0, R3
+    beq memsetwritebyteslend
+
+    strb R6, [R4, R0]
+    add R0, R0, #1
+
+    b memsetwritebytesloop
+
+memsetwritebyteslend
+    b memsetend ;;should just be done
+
+;;essentially another function
+memsetjustwritebytes
+    mov R0, R4 ;;get start addr
+memsetjustwritebytesloop
+    cmp R0, R5
+    bhs memsetjustwritebyteslend ;;If the current address is greater than the end address then we're all done
+
+    strb R6, [R0] ;;store the value
+    add R0, R0, #1 ;;inc the address
+
+    b memsetjustwritebytesloop ;;branch to loop
+
+memsetjustwritebyteslend
+    ;;nothing to do here
+    b memsetret
+memsetend
+
+memsetret
+    pop {R14, R4-R8}
+    mov R15, R14
+
 align
 
 ;;String defs -- The naming scheme is bad :(
@@ -3195,7 +3309,7 @@ askslow         defb "Enable slow mode? Y/n: ", 0
 askstep         defb "Enable step mode? Y/n: ", 0
 stepslowwarning defb "Cannot have slow and step mode active at the same time, disabling slow mode", nl, 0
 savedchoice     defb "Return to menu? (n for continue sim) Y/n: ", 0
-askname         defb "Please enter a name for the grid: ", 0
+askname         defb "Please enter a name for the grid (enter to input): ", 0
 warneraseslow   defb "Erase mode is active it is recommended to also use slow mode", nl, 0
 askwid          defb "Please enter a width (", 0
 dash            defb "-", 0
@@ -3220,7 +3334,7 @@ drawinfomsg     defb "Using '1' and '0' choose the value of the current cell. Us
 drawfailmsg     defb "Invalid input please enter 1 or 0, or enter for next line: ", nl, 0
 gridfailmsg     defb "Grid was not properly initialised, consider smaller dims", nl, 0
 gridsavefail    defb "There was an error allocating memory for the grid save", nl, 0
-gridloadempty   defb "There are no saved grids, start a step mode sim and save the grid, returning to main menu", nl, 0
+gridloadempty   defb "There are no saved grids, returning to main menu", nl, 0
 gridloadpindex  defb "|index: ", 0
 gridloadpname   defb "|name: ", 0
 gridloadpwidth  defb "|width: ", 0
@@ -3269,6 +3383,8 @@ currentarrerr   defb "Invalid value entered re-enter: ", 0
 changearrsizmsg defb "Invalid, x >= y.", nl, 0
 changeittere_m  defb "Invalid itter value. Re-enter: ", nl, 0
 getitters_m     defb "Enter the max itterations (1-255): ", 0
+
+align ;; w   h   y
 
 currentset_m    defb "Current settings: (", 0
 ;;Current settings (stepMode_d: On/Off  slowMode_d: On/Off  eraseMode_d: On/Off  Dims_d:(x,y)

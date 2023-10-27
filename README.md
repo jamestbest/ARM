@@ -14,6 +14,7 @@ This is my second rendition of John Conway's Game of life.
   - Random mode where the user enters a 4 character seed that is used to populate the grid
   - Saving & loading of the grids
   - Simulation of the grid i.e. counting neighbours and updating new alt grid
+  - Helper memory functions such as memset & memcpy
 
 ### BTS
 #### Malloc & Free
@@ -47,7 +48,7 @@ then the values are copied over.
   - After adding the main game that was basically a better version of JCGOL.s I decided to add saving & loading and later settings. This wasn't in the original scope at all and made refactoring much harder
 
 ### Todo
-  - Add memset for malloc so that its always 0 then remove the heapClean
+  - Could strtoi also take into account the \b's? Would also have to change the max length on some of the inputs
 
 ### Maybe
 The main thing I've been thinking about adding is to designate an area of memory as 'non-volatile' this is of course only non-volatile between runs of the program not of KMD. This could then store the saved grids.  
