@@ -56,4 +56,4 @@ It'd need someway to keep track of the stored information, a function to save to
 It's not imperative and wouldn't really add anything to the game, but it would be cool to try and add.
 
 ## JCGOL
-Unlike its sequel JCGOL.s is a static implimentation of JCGOL, it has two grids stored as defs of maxwidth * maxheight
+Unlike its sequel JCGOL.s in old/ is a static implimentation of JCGOL, it has two grids stored as defs of maxwidth * maxheight
